@@ -1,0 +1,10 @@
+*.o
+*.a
+*.la
+*.lo
+*.so
+
+.deps/
+.libs/
+
+.gitignore
