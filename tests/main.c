@@ -18,6 +18,7 @@
  */
 
 #include <glib.h>
+#include <string.h>
 #include "mio/mio.h"
 
 #define TEST_FILE "test.input"
@@ -69,6 +70,43 @@ test_mio_mem_new_from_file (const gchar *file,
 #define TEST_ACTION_2(ret_var, func, mio_var, p1, p2) \
   ret_var##_m = func (mio_var##_m, p1, p2);           \
   ret_var##_f = func (mio_var##_f, p1, p2);
+
+
+#define assert_cmpptr(p1, cmp, p2, n)                                          \
+  do { void *__p1 = (p1), *__p2 = (p2);                                        \
+    if (memcmp (__p1, __p2, n) cmp 0) ; else                                   \
+      g_assertion_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,        \
+                           g_strdup_printf ("\"%.*s\" " #cmp " \"%.*s\"",      \
+                                            n, (char *)__p1, n, (char *)__p2));\
+  } while (0)
+
+
+
+static void
+test_read_read (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio)
+  TEST_DECLARE_ARRAY (gchar, ptr, 255)
+  TEST_DECLARE_VAR (gsize, n)
+  TEST_DECLARE_VAR (gint, c)
+  gint i;
+  
+  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  
+  loop (i, 3) {
+    n_m = mio_read (mio_m, ptr_m, sizeof (*ptr_m), sizeof (ptr_m));
+    n_f = mio_read (mio_f, ptr_f, sizeof (*ptr_f), sizeof (ptr_f));
+    g_assert_cmpuint (n_m, ==, n_f);
+    assert_cmpptr (ptr_m, ==, ptr_f, n_m);
+  }
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  loop (i, 3) {
+    n_m = mio_read (mio_m, ptr_m, sizeof (*ptr_m), sizeof (ptr_m));
+    n_f = mio_read (mio_f, ptr_f, sizeof (*ptr_f), sizeof (ptr_f));
+    g_assert_cmpuint (n_m, ==, n_f);
+    assert_cmpptr (ptr_m, ==, ptr_f, n_m);
+  }
+}
 
 static void
 test_read_getc (void)
@@ -123,7 +161,7 @@ main (int     argc,
 {
   g_test_init (&argc, &argv, NULL);
   
-  //~ ADD_TEST_FUNC (read, read);
+  ADD_TEST_FUNC (read, read);
   ADD_TEST_FUNC (read, getc);
   ADD_TEST_FUNC (read, gets);
   //~ ADD_TEST_FUNC (write, write);
