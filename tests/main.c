@@ -48,6 +48,18 @@ test_mio_mem_new_from_file (const gchar *file,
 #define loop(var, n) range_loop(var, 0, n, 1)
 
 
+#define TEST_DECLARE_VAR(type, name) \
+  type name##_m; \
+  type name##_f;
+#define TEST_DECLARE_ARRAY(type, name, size) \
+  type name##_m[size]; \
+  type name##_f[size];
+
+#define TEST_CREATE_MIO(var, file, rw)              \
+  var##_m = test_mio_mem_new_from_file (file, rw);  \
+  var##_f = mio_new_file (file, rw ? "r+b" : "rb"); \
+  g_assert (var##_m != NULL && var##_f != NULL);
+
 #define TEST_ACTION_0(ret_var, func, mio_var) \
   ret_var##_m = func (mio_var##_m);           \
   ret_var##_f = func (mio_var##_f);
@@ -61,13 +73,11 @@ test_mio_mem_new_from_file (const gchar *file,
 static void
 test_read_getc (void)
 {
-  MIO *mio_m, *mio_f;
-  gint c_m, c_f;
+  TEST_DECLARE_VAR (MIO*, mio)
+  TEST_DECLARE_VAR (gint, c)
   gint i;
   
-  mio_m = test_mio_mem_new_from_file (TEST_FILE, FALSE);
-  mio_f = mio_new_file (TEST_FILE, "r");
-  g_assert (mio_m != NULL && mio_f != NULL);
+  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
   
   loop (i, 3) {
     TEST_ACTION_0 (c, mio_getc, mio)
@@ -83,14 +93,12 @@ test_read_getc (void)
 static void
 test_read_gets (void)
 {
-  MIO *mio_m, *mio_f;
-  gchar s_m[255], s_f[255];
-  gint c_m, c_f;
+  TEST_DECLARE_VAR (MIO*, mio)
+  TEST_DECLARE_ARRAY (gchar, s, 255)
+  TEST_DECLARE_VAR (gint, c)
   gint i;
   
-  mio_m = test_mio_mem_new_from_file (TEST_FILE, FALSE);
-  mio_f = mio_new_file (TEST_FILE, "r");
-  g_assert (mio_m != NULL && mio_f != NULL);
+  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
   
   loop (i, 3) {
     mio_gets (mio_m, s_m, 255);
