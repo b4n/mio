@@ -126,19 +126,16 @@ mio_read (MIO    *mio,
         *((guchar *)ptr) = (guchar)mio->impl.mem.ungetch;
         mio->impl.mem.ungetch = EOF;
         if (size == 1) {
-          nmemb--;
           n_read++;
-        } else if (mio->impl.mem.pos + (size - 1) < mio->impl.mem.size) {
+        } else if (mio->impl.mem.pos + (size - 1) <= mio->impl.mem.size) {
           memcpy (&(((guchar *)ptr)[1]),
                   &mio->impl.mem.buf[mio->impl.mem.pos], size - 1);
           mio->impl.mem.pos += size - 1;
-          nmemb--;
           n_read++;
         }
       }
-      for (n_read = 0; n_read < nmemb; n_read++) {
-        if (mio->impl.mem.pos + size >= mio->impl.mem.size) {
-          /* FIXME: set the error */
+      for (; n_read < nmemb; n_read++) {
+        if (mio->impl.mem.pos + size > mio->impl.mem.size) {
           break;
         } else {
           memcpy (&(((guchar *)ptr)[n_read * size]),
