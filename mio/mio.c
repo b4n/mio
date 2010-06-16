@@ -171,11 +171,21 @@ mio_gets (MIO    *mio,
   
   switch (mio->type) {
     case MIO_TYPE_MEMORY:
-      if (mio->impl.mem.pos + (size - 1) < mio->impl.mem.size) {
-        memcpy (s, &mio->impl.mem.buf[mio->impl.mem.pos], size - 1);
-        mio->impl.mem.pos += size - 1;
-        s[size - 1] = 0;
-        rv = s;
+      if (size > 0) {
+        gsize i = 0;
+        
+        for (; mio->impl.mem.pos < mio->impl.mem.size && i < (size - 1); i++) {
+          s[i] = mio->impl.mem.buf[mio->impl.mem.pos];
+          mio->impl.mem.pos++;
+          if (s[i] == '\n') {
+            i++;
+            break;
+          }
+        }
+        if (i > 0) {
+          s[i] = 0;
+          rv = s;
+        }
       }
       break;
     
