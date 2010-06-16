@@ -28,6 +28,9 @@ GZIP       ?= gzip --best
 TAR        ?= tar
 TARFILE    ?= $(PROGRAM)-$(VERSION).tar.gz
 
+LIB_SUFFIX  = .so
+EXE_SUFFIX  = 
+
 ifeq ($(CFLAGS), )
 	default_cflags = -ansi -pedantic -W -Wall -Werror-implicit-function-declaration -O2 -g
 else
@@ -75,21 +78,21 @@ mk_v_silent_1 =
 
 .PHONY: all clean distclean dist $(TARFILE)
 
-all: $(LIBRARY) $(PROGRAM)
+all: $(LIBRARY)$(LIB_SUFFIX) $(PROGRAM)$(EXE_SUFFIX)
 
 include $(wildcard .deps/*)
 
 .deps:
 	@test -d $@ || mkdir $@
 
-$(LIBRARY): $(LIB_OBJECTS)
+$(LIBRARY)$(LIB_SUFFIX): $(LIB_OBJECTS)
 	$(mk_v_ld) $(CC) -o $@ -shared $^ $(LIB_LDFLAGS) $(LIB_LIBS)
 
 $(libobj_pfx)%.o: %.c
 	$(mk_v_silent) $(mk_deps_prepare)
 	$(mk_v_cc) $(CC) -o $@ -c $< $(LIB_CFLAGS) $(mk_deps_cflags)
 
-$(PROGRAM): $(OBJECTS)
+$(PROGRAM)$(EXE_SUFFIX): $(OBJECTS)
 	$(mk_v_ld) $(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 
 $(obj_pfx)%.o: %.c
@@ -100,7 +103,7 @@ clean:
 	$(RM) $(LIB_OBJECTS) $(OBJECTS)
 	$(RM) $(LIB_OBJECTS:%=.deps/%) $(OBJECTS:%=.deps/%)
 distclean: clean
-	$(RM) $(LIBRARY) $(PROGRAM)
+	$(RM) $(LIBRARY)$(LIB_SUFFIX) $(PROGRAM)$(EXE_SUFFIX)
 	test ! -d .deps || $(RMDIR) .deps
 
 dist: $(TARFILE)
