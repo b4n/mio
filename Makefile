@@ -48,8 +48,8 @@ LIB_CFLAGS  += $(shell $(PKG_CONFIG) --cflags $(LIB_PACKAGES) 2>/dev/null) -fPIC
 LIB_LIBS    += $(shell $(PKG_CONFIG) --libs $(LIB_PACKAGES) 2>/dev/null)
 LIB_LDFLAGS +=
 CFLAGS      += $(shell $(PKG_CONFIG) --cflags $(PACKAGES) 2>/dev/null) -fPIC
-LIBS        += $(shell $(PKG_CONFIG) --libs $(PACKAGES) 2>/dev/null)
-LDFLAGS     +=
+LIBS        += $(shell $(PKG_CONFIG) --libs $(PACKAGES) 2>/dev/null) -l$(LIBRARY:lib%=%)
+LDFLAGS     += -L.
 
 mk_deps_prepare = test -d .deps || mkdir .deps
 mk_deps_cflags  = -MP -MD -MF .deps/$@ -MT $@
