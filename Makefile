@@ -109,3 +109,6 @@ distclean: clean
 dist: $(TARFILE)
 $(TARFILE):
 	$(mk_v_gen) $(TAR) -c $(DISTFILES) | $(GZIP) -c > $@
+
+run:
+	$(mk_v_silent) LD_LIBRARY_PATH="$$LD_LIBRARY_PATH:." $(PROGRAM)$(EXE_SUFFIX)
