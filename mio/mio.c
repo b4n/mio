@@ -74,6 +74,7 @@ mio_new_memory (guchar         *data,
   if (mio) {
     mio->type = MIO_TYPE_MEMORY;
     mio->impl.mem.buf = data;
+    mio->impl.mem.ungetch = EOF;
     mio->impl.mem.pos = 0;
     mio->impl.mem.size = size;
     mio->impl.mem.allocated_size = size;
@@ -121,6 +122,20 @@ mio_read (MIO    *mio,
   
   switch (mio->type) {
     case MIO_TYPE_MEMORY:
+      if (mio->impl.mem.ungetch != EOF && nmemb > 0) {
+        *((guchar *)ptr) = (guchar)mio->impl.mem.ungetch;
+        mio->impl.mem.ungetch = EOF;
+        if (size == 1) {
+          nmemb--;
+          n_read++;
+        } else if (mio->impl.mem.pos + (size - 1) < mio->impl.mem.size) {
+          memcpy (&(((guchar *)ptr)[1]),
+                  &mio->impl.mem.buf[mio->impl.mem.pos], size - 1);
+          mio->impl.mem.pos += size - 1;
+          nmemb--;
+          n_read++;
+        }
+      }
       for (n_read = 0; n_read < nmemb; n_read++) {
         if (mio->impl.mem.pos + size >= mio->impl.mem.size) {
           /* FIXME: set the error */
@@ -148,7 +163,10 @@ mio_getc (MIO *mio)
   
   switch (mio->type) {
     case MIO_TYPE_MEMORY:
-      if (mio->impl.mem.pos < mio->impl.mem.size) {
+      if (mio->impl.mem.ungetch != EOF) {
+        rv = mio->impl.mem.ungetch;
+        mio->impl.mem.ungetch = EOF;
+      } else if (mio->impl.mem.pos < mio->impl.mem.size) {
         rv = mio->impl.mem.buf[mio->impl.mem.pos];
         mio->impl.mem.pos++;
       }
@@ -156,6 +174,27 @@ mio_getc (MIO *mio)
     
     case MIO_TYPE_FILE:
       rv = fgetc (mio->impl.file.fp);
+      break;
+  }
+  
+  return rv;
+}
+
+gint
+mio_ungetc (MIO  *mio,
+            gint  ch)
+{
+  gint rv = EOF;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      if (mio->impl.mem.ungetch == EOF) {
+        rv = mio->impl.mem.ungetch = ch;
+      }
+      break;
+    
+    case MIO_TYPE_FILE:
+      rv = ungetc (ch, mio->impl.file.fp);
       break;
   }
   
@@ -174,8 +213,13 @@ mio_gets (MIO    *mio,
       if (size > 0) {
         gsize i = 0;
         
+        if (mio->impl.mem.ungetch != EOF) {
+          s[i] = (gchar)mio->impl.mem.ungetch;
+          mio->impl.mem.ungetch = EOF;
+          i++;
+        }
         for (; mio->impl.mem.pos < mio->impl.mem.size && i < (size - 1); i++) {
-          s[i] = mio->impl.mem.buf[mio->impl.mem.pos];
+          s[i] = (gchar)mio->impl.mem.buf[mio->impl.mem.pos];
           mio->impl.mem.pos++;
           if (s[i] == '\n') {
             i++;

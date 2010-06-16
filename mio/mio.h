@@ -63,7 +63,7 @@ struct MIO {
     } file;
     struct {
       guchar         *buf;
-      gchar           ungetch;
+      gint            ungetch;
       gsize           pos;
       gsize           size;
       gsize           allocated_size;
