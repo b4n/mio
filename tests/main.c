@@ -1,6 +1,6 @@
 
 #include <glib.h>
-#include "fio.h"
+#include "fio/fio.h"
 
 #define TEST_FILE "test.input"
 

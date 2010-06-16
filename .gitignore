@@ -7,4 +7,16 @@
 .deps/
 .libs/
 
+# this might be removed sometime if we add custom macros
+/build/
+
+/aclocal.m4
+/autom4te.cache/
+/config.*
+/configure
+/libtool
+Makefile
+Makefile.in
+stamp-*
+
 .gitignore
