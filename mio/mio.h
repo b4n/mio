@@ -47,13 +47,6 @@ struct MIOPos {
   } impl;
 };
 
-#if 0
-/* test for Geany's tag list */
-struct MIO {
-  int hack;
-};
-#endif
-
 struct MIO {
   guint type;
   union {
