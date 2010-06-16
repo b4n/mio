@@ -100,6 +100,7 @@ test_read_read (void)
     assert_cmpptr (ptr_m, ==, ptr_f, n_m);
   }
   TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
     n_m = mio_read (mio_m, ptr_m, sizeof (*ptr_m), sizeof (ptr_m));
     n_f = mio_read (mio_f, ptr_f, sizeof (*ptr_f), sizeof (ptr_f));
@@ -119,12 +120,13 @@ test_read_getc (void)
   
   loop (i, 3) {
     TEST_ACTION_0 (c, mio_getc, mio)
-    g_assert (c_m == c_f);
+    g_assert_cmpint (c_m, ==, c_f);
   }
   TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
     TEST_ACTION_0 (c, mio_getc, mio)
-    g_assert (c_m == c_f);
+    g_assert_cmpint (c_m, ==, c_f);
   }
 }
 
@@ -144,6 +146,7 @@ test_read_gets (void)
     g_assert_cmpstr (s_m, ==, s_f);
   }
   TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
     mio_gets (mio_m, s_m, 255);
     mio_gets (mio_f, s_f, 255);
