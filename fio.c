@@ -4,7 +4,6 @@
 #include <glib.h>
 #include <stdio.h>
 #include <string.h>
-#include <limits.h>
 
 
 
@@ -163,7 +162,7 @@ fio_gets (FIO    *fio,
       break;
     
     case FIO_TYPE_FILE:
-      if (size > INT_MAX) {
+      if (size > G_MAXINT) {
         /* FIXME: report the error */
       } else {
         rv = fgets (s, (int)size, fio->impl.file.fp);
