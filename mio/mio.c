@@ -1,0 +1,192 @@
+/*
+ *  MIO, an I/O abstraction layer replicating C file I/O API.
+ *  Copyright (C) 2010  Colomban Wendling <ban@herbesfolles.org>
+ * 
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ * 
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ * 
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
+
+#include "mio.h"
+
+#include <glib.h>
+#include <stdio.h>
+#include <string.h>
+
+
+
+MIO *
+mio_new_file (const gchar *path,
+              const gchar *mode)
+{
+  FILE *fp;
+  MIO  *mio = NULL;
+  
+  fp = fopen (path, mode);
+  if (fp) {
+    mio = g_slice_alloc (sizeof *mio);
+    if (! mio) {
+      fclose (fp);
+    } else {
+      mio->type = MIO_TYPE_FILE;
+      mio->impl.file.fp = fp;
+      mio->impl.file.close = TRUE;
+    }
+  }
+  
+  return mio;
+}
+
+MIO *
+mio_new_fp (FILE     *fp,
+            gboolean  do_close)
+{
+  MIO *mio;
+  
+  mio = g_slice_alloc (sizeof *mio);
+  if (mio) {
+    mio->type = MIO_TYPE_FILE;
+    mio->impl.file.fp = fp;
+    mio->impl.file.close = do_close;
+  }
+  
+  return mio;
+}
+
+MIO *
+mio_new_memory (guchar         *data,
+                gsize           size,
+                MIOReallocFunc  realloc_func)
+{
+  MIO  *mio;
+  
+  mio = g_slice_alloc (sizeof *mio);
+  if (mio) {
+    mio->type = MIO_TYPE_MEMORY;
+    mio->impl.mem.buf = data;
+    mio->impl.mem.pos = 0;
+    mio->impl.mem.size = size;
+    mio->impl.mem.allocated_size = size;
+    mio->impl.mem.realloc_func = realloc_func;
+  }
+  
+  return mio;
+}
+
+void
+mio_free (MIO *mio)
+{
+  if (mio) {
+    switch (mio->type) {
+      case MIO_TYPE_MEMORY:
+        if (mio->impl.mem.realloc_func) {
+          mio->impl.mem.realloc_func (mio->impl.mem.buf, 0);
+        }
+        mio->impl.mem.buf = NULL;
+        mio->impl.mem.pos = 0;
+        mio->impl.mem.size = 0;
+        mio->impl.mem.allocated_size = 0;
+        mio->impl.mem.realloc_func = NULL;
+        break;
+      
+      case MIO_TYPE_FILE:
+        if (mio->impl.file.close) {
+          fclose (mio->impl.file.fp);
+        }
+        mio->impl.file.close = FALSE;
+        mio->impl.file.fp = NULL;
+        break;
+    }
+    g_slice_free1 (sizeof *mio, mio);
+  }
+}
+
+gsize
+mio_read (MIO    *mio,
+          void   *ptr,
+          gsize   size,
+          gsize   nmemb)
+{
+  gsize n_read = 0;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      for (n_read = 0; n_read < nmemb; n_read++) {
+        if (mio->impl.mem.pos + size >= mio->impl.mem.size) {
+          /* FIXME: set the error */
+          break;
+        } else {
+          memcpy (&(((guchar *)ptr)[n_read * size]),
+                  &mio->impl.mem.buf[mio->impl.mem.pos], size);
+          mio->impl.mem.pos += size;
+        }
+      }
+      break;
+    
+    case MIO_TYPE_FILE:
+      n_read = fread (ptr, size, nmemb, mio->impl.file.fp);
+      break;
+  }
+  
+  return n_read;
+}
+
+gint
+mio_getc (MIO *mio)
+{
+  gint rv = EOF;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      if (mio->impl.mem.pos < mio->impl.mem.size) {
+        rv = mio->impl.mem.buf[mio->impl.mem.pos];
+        mio->impl.mem.pos++;
+      }
+      break;
+    
+    case MIO_TYPE_FILE:
+      rv = fgetc (mio->impl.file.fp);
+      break;
+  }
+  
+  return rv;
+}
+
+gchar *
+mio_gets (MIO    *mio,
+          gchar  *s,
+          gsize   size)
+{
+  gchar *rv = NULL;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      if (mio->impl.mem.pos + (size - 1) < mio->impl.mem.size) {
+        memcpy (s, &mio->impl.mem.buf[mio->impl.mem.pos], size - 1);
+        mio->impl.mem.pos += size - 1;
+        s[size - 1] = 0;
+        rv = s;
+      }
+      break;
+    
+    case MIO_TYPE_FILE:
+      if (size > G_MAXINT) {
+        /* FIXME: report the error */
+      } else {
+        rv = fgets (s, (int)size, mio->impl.file.fp);
+      }
+      break;
+  }
+  
+  return rv;
+}

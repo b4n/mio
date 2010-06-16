@@ -1,5 +1,5 @@
 /*
- *  FIO, an I/O abstraction layer replicating C file I/O API.
+ *  MIO, an I/O abstraction layer replicating C file I/O API.
  *  Copyright (C) 2010  Colomban Wendling <ban@herbesfolles.org>
  * 
  *  This program is free software: you can redistribute it and/or modify
@@ -18,16 +18,16 @@
  */
 
 #include <glib.h>
-#include "fio/fio.h"
+#include "mio/mio.h"
 
 #define TEST_FILE "test.input"
 
 
-static FIO *
-test_fio_mem_new_from_file (const gchar *file,
+static MIO *
+test_mio_mem_new_from_file (const gchar *file,
                             gboolean     rw)
 {
-  FIO    *fio = NULL;
+  MIO    *mio = NULL;
   gchar  *contents;
   gsize   length;
   GError *err = NULL;
@@ -36,10 +36,10 @@ test_fio_mem_new_from_file (const gchar *file,
     g_critical ("Failed to load file: %s", err->message);
     g_error_free (err);
   } else {
-    fio = fio_new_memory ((guchar *)contents, length, rw ? g_try_realloc : NULL);
+    mio = mio_new_memory ((guchar *)contents, length, rw ? g_try_realloc : NULL);
   }
   
-  return fio;
+  return mio;
 }
 
 
@@ -48,34 +48,34 @@ test_fio_mem_new_from_file (const gchar *file,
 #define loop(var, n) range_loop(var, 0, n, 1)
 
 
-#define TEST_ACTION_0(ret_var, func, fio_var) \
-  ret_var##_m = func (fio_var##_m);           \
-  ret_var##_f = func (fio_var##_f);
-#define TEST_ACTION_1(ret_var, func, fio_var, p1) \
-  ret_var##_m = func (fio_var##_m, p1);           \
-  ret_var##_f = func (fio_var##_f, p1);
-#define TEST_ACTION_2(ret_var, func, fio_var, p1, p2) \
-  ret_var##_m = func (fio_var##_m, p1, p2);           \
-  ret_var##_f = func (fio_var##_f, p1, p2);
+#define TEST_ACTION_0(ret_var, func, mio_var) \
+  ret_var##_m = func (mio_var##_m);           \
+  ret_var##_f = func (mio_var##_f);
+#define TEST_ACTION_1(ret_var, func, mio_var, p1) \
+  ret_var##_m = func (mio_var##_m, p1);           \
+  ret_var##_f = func (mio_var##_f, p1);
+#define TEST_ACTION_2(ret_var, func, mio_var, p1, p2) \
+  ret_var##_m = func (mio_var##_m, p1, p2);           \
+  ret_var##_f = func (mio_var##_f, p1, p2);
 
 static void
 test_read_getc (void)
 {
-  FIO *fio_m, *fio_f;
+  MIO *mio_m, *mio_f;
   gint c_m, c_f;
   gint i;
   
-  fio_m = test_fio_mem_new_from_file (TEST_FILE, FALSE);
-  fio_f = fio_new_file (TEST_FILE, "r");
-  g_assert (fio_m != NULL && fio_f != NULL);
+  mio_m = test_mio_mem_new_from_file (TEST_FILE, FALSE);
+  mio_f = mio_new_file (TEST_FILE, "r");
+  g_assert (mio_m != NULL && mio_f != NULL);
   
   loop (i, 3) {
-    TEST_ACTION_0 (c, fio_getc, fio)
+    TEST_ACTION_0 (c, mio_getc, mio)
     g_assert (c_m == c_f);
   }
-  TEST_ACTION_1 (c, fio_ungetc, fio, 'X')
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
   loop (i, 3) {
-    TEST_ACTION_0 (c, fio_getc, fio)
+    TEST_ACTION_0 (c, mio_getc, mio)
     g_assert (c_m == c_f);
   }
 }
@@ -83,24 +83,24 @@ test_read_getc (void)
 static void
 test_read_gets (void)
 {
-  FIO *fio_m, *fio_f;
+  MIO *mio_m, *mio_f;
   gchar s_m[255], s_f[255];
   gint c_m, c_f;
   gint i;
   
-  fio_m = test_fio_mem_new_from_file (TEST_FILE, FALSE);
-  fio_f = fio_new_file (TEST_FILE, "r");
-  g_assert (fio_m != NULL && fio_f != NULL);
+  mio_m = test_mio_mem_new_from_file (TEST_FILE, FALSE);
+  mio_f = mio_new_file (TEST_FILE, "r");
+  g_assert (mio_m != NULL && mio_f != NULL);
   
   loop (i, 3) {
-    fio_gets (fio_m, s_m, 255);
-    fio_gets (fio_f, s_f, 255);
+    mio_gets (mio_m, s_m, 255);
+    mio_gets (mio_f, s_f, 255);
     g_assert_cmpstr (s_m, ==, s_f);
   }
-  TEST_ACTION_1 (c, fio_ungetc, fio, 'X')
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
   loop (i, 3) {
-    fio_gets (fio_m, s_m, 255);
-    fio_gets (fio_f, s_f, 255);
+    mio_gets (mio_m, s_m, 255);
+    mio_gets (mio_f, s_f, 255);
     g_assert_cmpstr (s_m, ==, s_f);
   }
 }

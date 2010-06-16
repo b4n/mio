@@ -1,5 +1,5 @@
 /*
- *  FIO, an I/O abstraction layer replicating C file I/O API.
+ *  MIO, an I/O abstraction layer replicating C file I/O API.
  *  Copyright (C) 2010  Colomban Wendling <ban@herbesfolles.org>
  * 
  *  This program is free software: you can redistribute it and/or modify
@@ -17,28 +17,28 @@
  * 
  */
 
-#ifndef H_FIO_H
-#define H_FIO_H
+#ifndef H_MIO_H
+#define H_MIO_H
 
 #include <glib.h>
 #include <stdio.h>
 
 
-enum FIOType {
-  FIO_TYPE_FILE,
-  FIO_TYPE_MEMORY
+enum MIOType {
+  MIO_TYPE_FILE,
+  MIO_TYPE_MEMORY
 };
 
-typedef enum FIOType    FIOType;
-typedef struct FIO      FIO;
-typedef struct FIOPos   FIOPos;
+typedef enum MIOType    MIOType;
+typedef struct MIO      MIO;
+typedef struct MIOPos   MIOPos;
 /* should be GReallocFunc but it's only defined by GIO */
-typedef gpointer (* FIOReallocFunc) (gpointer data,
+typedef gpointer (* MIOReallocFunc) (gpointer data,
                                      gsize    size);
 
-struct FIOPos {
+struct MIOPos {
   guint type;
-#ifdef FIO_DEBUG
+#ifdef MIO_DEBUG
   void *tag;
 #endif
   union {
@@ -49,12 +49,12 @@ struct FIOPos {
 
 #if 0
 /* test for Geany's tag list */
-struct FIO {
+struct MIO {
   int hack;
 };
 #endif
 
-struct FIO {
+struct MIO {
   guint type;
   union {
     struct {
@@ -63,54 +63,55 @@ struct FIO {
     } file;
     struct {
       guchar         *buf;
+      gchar           ungetch;
       gsize           pos;
       gsize           size;
       gsize           allocated_size;
-      FIOReallocFunc  realloc_func;
+      MIOReallocFunc  realloc_func;
     } mem;
   } impl;
 };
 
 
-FIO        *fio_new_file    (const gchar *path,
+MIO        *mio_new_file    (const gchar *path,
                              const gchar *mode);
-FIO        *fio_new_fp      (FILE        *fp,
+MIO        *mio_new_fp      (FILE        *fp,
                              gboolean     do_close);
-FIO        *fio_new_memory  (guchar        *data,
+MIO        *mio_new_memory  (guchar        *data,
                              gsize          size,
-                             FIOReallocFunc realloc_func);
-void        fio_free        (FIO *fio);
-gsize       fio_read        (FIO     *fio,
+                             MIOReallocFunc realloc_func);
+void        mio_free        (MIO *mio);
+gsize       mio_read        (MIO     *mio,
                              void    *ptr,
                              gsize    size,
                              gsize    nmemb);
-gsize       fio_write       (FIO         *fio,
+gsize       mio_write       (MIO         *mio,
                              const void  *ptr,
                              gsize        size,
                              gsize        nmemb);
-gint        fio_getc        (FIO *fio);
-char       *fio_gets        (FIO   *fio,
+gint        mio_getc        (MIO *mio);
+char       *mio_gets        (MIO   *mio,
                              gchar *s,
                              gsize  size);
-gint        fio_ungetc      (FIO *fio,
+gint        mio_ungetc      (MIO *mio,
                              gint c);
-gint        fio_putc        (FIO *fio,
+gint        mio_putc        (MIO *mio,
                              gint c);
-gint        fio_puts        (FIO         *fio,
+gint        mio_puts        (MIO         *mio,
                              const gchar *s);
 
-gint        fio_clearerr    (FIO *fio);
-gint        fio_eof         (FIO *fio);
-gint        fio_error       (FIO *fio);
-gint        fio_seek        (FIO   *fio,
+gint        mio_clearerr    (MIO *mio);
+gint        mio_eof         (MIO *mio);
+gint        mio_error       (MIO *mio);
+gint        mio_seek        (MIO   *mio,
                              glong  offset,
                              gint   whence);
-glong       fio_tell        (FIO *fio);
-void        fio_rewind      (FIO *fio);
-gint        fio_getpos      (FIO     *fio,
-                             FIOPos  *pos);
-gint        fio_setpos      (FIO     *fio,
-                             FIOPos  *pos);
+glong       mio_tell        (MIO *mio);
+void        mio_rewind      (MIO *mio);
+gint        mio_getpos      (MIO     *mio,
+                             MIOPos  *pos);
+gint        mio_setpos      (MIO     *mio,
+                             MIOPos  *pos);
 
 
 

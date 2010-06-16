@@ -2,11 +2,11 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.64])
-AC_INIT([FIO],
+AC_INIT([MIO],
         [0.1],
         [ban@herbesfolles.org],
-        [libfio])
-AC_CONFIG_SRCDIR([fio/fio.c])
+        [libmio])
+AC_CONFIG_SRCDIR([mio/mio.c])
 AC_CONFIG_MACRO_DIR([build/m4])
 AC_CONFIG_AUX_DIR([build/aux])
 AM_INIT_AUTOMAKE([1.11.1 -Wall -Werror foreign])
@@ -22,8 +22,8 @@ AM_SILENT_RULES([yes])
 #   * not changed the interface (bug fixes):          CURRENT:REV+1:AGE
 #   * augmented the interface (new things):           CURRENT+1:0:AGE+1
 #   * broken the interface (removed/changed things):  CURRENT+1:0:0
-FIO_LTVERSION="0:0:0"
-AC_SUBST([FIO_LTVERSION])
+MIO_LTVERSION="0:0:0"
+AC_SUBST([MIO_LTVERSION])
 
 # Checks for programs.
 LT_PREREQ([2.2.0])
@@ -43,6 +43,6 @@ AC_TYPE_SIZE_T
 # Checks for library functions.
 
 AC_CONFIG_FILES([Makefile
-                 fio/Makefile
+                 mio/Makefile
                  tests/Makefile])
 AC_OUTPUT
