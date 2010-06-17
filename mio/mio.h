@@ -61,6 +61,7 @@ struct MIO {
       gsize           size;
       gsize           allocated_size;
       MIOReallocFunc  realloc_func;
+      GDestroyNotify  free_func;
     } mem;
   } impl;
 };
@@ -72,7 +73,8 @@ MIO        *mio_new_fp      (FILE        *fp,
                              gboolean     do_close);
 MIO        *mio_new_memory  (guchar        *data,
                              gsize          size,
-                             MIOReallocFunc realloc_func);
+                             MIOReallocFunc realloc_func,
+                             GDestroyNotify free_func);
 void        mio_free        (MIO *mio);
 gsize       mio_read        (MIO     *mio,
                              void    *ptr,

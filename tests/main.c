@@ -37,7 +37,8 @@ test_mio_mem_new_from_file (const gchar *file,
     g_critical ("Failed to load file: %s", err->message);
     g_error_free (err);
   } else {
-    mio = mio_new_memory ((guchar *)contents, length, rw ? g_try_realloc : NULL);
+    mio = mio_new_memory ((guchar *)contents, length,
+                          rw ? g_try_realloc : NULL, g_free);
   }
   
   return mio;

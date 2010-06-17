@@ -66,7 +66,8 @@ mio_new_fp (FILE     *fp,
 MIO *
 mio_new_memory (guchar         *data,
                 gsize           size,
-                MIOReallocFunc  realloc_func)
+                MIOReallocFunc  realloc_func,
+                GDestroyNotify  free_func)
 {
   MIO  *mio;
   
@@ -79,6 +80,7 @@ mio_new_memory (guchar         *data,
     mio->impl.mem.size = size;
     mio->impl.mem.allocated_size = size;
     mio->impl.mem.realloc_func = realloc_func;
+    mio->impl.mem.free_func = free_func;
   }
   
   return mio;
@@ -90,14 +92,15 @@ mio_free (MIO *mio)
   if (mio) {
     switch (mio->type) {
       case MIO_TYPE_MEMORY:
-        if (mio->impl.mem.realloc_func) {
-          mio->impl.mem.realloc_func (mio->impl.mem.buf, 0);
+        if (mio->impl.mem.free_func) {
+          mio->impl.mem.free_func (mio->impl.mem.buf);
         }
         mio->impl.mem.buf = NULL;
         mio->impl.mem.pos = 0;
         mio->impl.mem.size = 0;
         mio->impl.mem.allocated_size = 0;
         mio->impl.mem.realloc_func = NULL;
+        mio->impl.mem.free_func = NULL;
         break;
       
       case MIO_TYPE_FILE:
