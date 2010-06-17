@@ -339,3 +339,68 @@ mio_rewind (MIO *mio)
   }
 }
 
+gint
+mio_getpos (MIO    *mio,
+            MIOPos *pos)
+{
+  gint rv = -1;
+  
+  pos->type = mio->type;
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      if (mio->impl.mem.pos == (gsize)-1) {
+        /* this happens if ungetc() was called at the start of the stream */
+        errno = EIO;
+      } else {
+        pos->impl.mem = mio->impl.mem.pos;
+        rv = 0;
+      }
+      break;
+    
+    case MIO_TYPE_FILE:
+      rv = fgetpos (mio->impl.file.fp, &pos->impl.file);
+      break;
+  }
+  #ifdef MIO_DEBUG
+  if (rv != -1) {
+    pos->tag = mio;
+  }
+  #endif /* MIO_DEBUG */
+  
+  return rv;
+}
+
+gint
+mio_setpos (MIO    *mio,
+            MIOPos *pos)
+{
+  gint rv = -1;
+  
+  #ifdef MIO_DEBUG
+  if (pos->tag != mio) {
+    g_critical ("mio_setpos((MIO*)%p, (MIOPos*)%p): "
+                "Given MIOPos was not set by a previous call to mio_getpos() "
+                "on the same MIO object, which means there is a bug in "
+                "someone's code.",
+                (void *)mio, (void *)pos);
+    return -1;
+  }
+  #endif /* MIO_DEBUG */
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      if (pos->impl.mem > mio->impl.mem.size) {
+        errno = EINVAL;
+      } else {
+        mio->impl.mem.pos = pos->impl.mem;
+        rv = 0;
+      }
+      break;
+    
+    case MIO_TYPE_FILE:
+      rv = fsetpos (mio->impl.file.fp, &pos->impl.file);
+      break;
+  }
+  
+  return rv;
+}
+

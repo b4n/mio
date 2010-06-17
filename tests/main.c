@@ -306,6 +306,105 @@ test_pos_rewind (void)
   TEST_DESTROY_MIO (mio)
 }
 
+static void
+test_pos_getpos (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio)
+  TEST_DECLARE_VAR (gint, c)
+  TEST_DECLARE_VAR (MIOPos, pos)
+  gint i;
+  
+  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  
+  loop (i, 3) {
+    c_m = mio_getpos (mio_m, &pos_m);
+    assert_errno (errno, ==, 0);
+    c_f = mio_getpos (mio_f, &pos_f);
+    assert_errno (errno, ==, 0);
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  loop (i, 3) {
+    c_m = mio_getpos (mio_m, &pos_m);
+    assert_errno (errno, ==, 0);
+    c_f = mio_getpos (mio_f, &pos_f);
+    assert_errno (errno, ==, 0);
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  
+  loop (i, 3) {
+    TEST_ACTION_2 (c, mio_seek, mio, -i, SEEK_END, 0)
+    c_m = mio_getpos (mio_m, &pos_m);
+    assert_errno (errno, ==, 0);
+    c_f = mio_getpos (mio_f, &pos_f);
+    assert_errno (errno, ==, 0);
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  
+  TEST_DESTROY_MIO (mio)
+}
+
+static void
+test_pos_setpos (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio)
+  TEST_DECLARE_VAR (gint, c)
+  TEST_DECLARE_VAR (MIOPos, pos)
+  gint i;
+  
+  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  
+  loop (i, 3) {
+    c_m = mio_getpos (mio_m, &pos_m);
+    assert_errno (errno, ==, 0);
+    c_f = mio_getpos (mio_f, &pos_f);
+    assert_errno (errno, ==, 0);
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+    c_m = mio_setpos (mio_m, &pos_m);
+    assert_errno (errno, ==, 0);
+    c_f = mio_setpos (mio_f, &pos_f);
+    assert_errno (errno, ==, 0);
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  /* those should fail because current posititon is -1 (because of the
+   * ungetc() when stream is at offset 0) */
+  c_m = mio_getpos (mio_m, &pos_m);
+  assert_errno (errno, ==, EIO);
+  c_f = mio_getpos (mio_f, &pos_f);
+  assert_errno (errno, ==, EIO);
+  g_assert_cmpint (c_m, ==, c_f);
+  
+  /* seek forward not to reproduce previous error */
+  TEST_ACTION_2 (c, mio_seek, mio, 1, SEEK_SET, 0)
+  
+  loop (i, 3) {
+    c_m = mio_getpos (mio_m, &pos_m);
+    assert_errno (errno, ==, 0);
+    c_f = mio_getpos (mio_f, &pos_f);
+    assert_errno (errno, ==, 0);
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+    c_m = mio_setpos (mio_m, &pos_m);
+    assert_errno (errno, ==, 0);
+    c_f = mio_setpos (mio_f, &pos_f);
+    assert_errno (errno, ==, 0);
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  
+  TEST_DESTROY_MIO (mio)
+}
 
 
 
@@ -327,6 +426,8 @@ main (int     argc,
   ADD_TEST_FUNC (pos, tell);
   ADD_TEST_FUNC (pos, seek);
   ADD_TEST_FUNC (pos, rewind);
+  ADD_TEST_FUNC (pos, getpos);
+  ADD_TEST_FUNC (pos, setpos);
   
   g_test_run ();
   
