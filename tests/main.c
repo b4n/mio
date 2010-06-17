@@ -19,6 +19,7 @@
 
 #include <glib.h>
 #include <string.h>
+#include <errno.h>
 #include "mio/mio.h"
 
 #define TEST_FILE "test.input"
@@ -60,19 +61,29 @@ test_mio_mem_new_from_file (const gchar *file,
 #define TEST_CREATE_MIO(var, file, rw)              \
   var##_m = test_mio_mem_new_from_file (file, rw);  \
   var##_f = mio_new_file (file, rw ? "r+b" : "rb"); \
-  g_assert (var##_m != NULL && var##_f != NULL);
+  g_assert (var##_m != NULL && var##_f != NULL);    \
+  errno = 0; /* WAT, it is ENOENT - no idea, IIRC GLib throws it */
 #define TEST_DESTROY_MIO(var) \
   mio##_m = mio##_f = (mio_free (var##_m), mio_free (var##_f), NULL);
 
-#define TEST_ACTION_0(ret_var, func, mio_var) \
-  ret_var##_m = func (mio_var##_m);           \
-  ret_var##_f = func (mio_var##_f);
-#define TEST_ACTION_1(ret_var, func, mio_var, p1) \
-  ret_var##_m = func (mio_var##_m, p1);           \
-  ret_var##_f = func (mio_var##_f, p1);
-#define TEST_ACTION_2(ret_var, func, mio_var, p1, p2) \
-  ret_var##_m = func (mio_var##_m, p1, p2);           \
-  ret_var##_f = func (mio_var##_f, p1, p2);
+#define TEST_ACTION_0(ret_var, func, mio_var, ex_err)                          \
+  errno = 0;                                                                   \
+  ret_var##_m = func (mio_var##_m);                                            \
+  assert_errno (errno, ==, ex_err);                                            \
+  ret_var##_f = func (mio_var##_f);                                            \
+  assert_errno (errno, ==, ex_err);
+#define TEST_ACTION_1(ret_var, func, mio_var, p1, ex_err)                      \
+  errno = 0;                                                                   \
+  ret_var##_m = func (mio_var##_m, p1);                                        \
+  assert_errno (errno, ==, ex_err);                                            \
+  ret_var##_f = func (mio_var##_f, p1);                                        \
+  assert_errno (errno, ==, ex_err);
+#define TEST_ACTION_2(ret_var, func, mio_var, p1, p2, ex_err)                  \
+  errno = 0;                                                                   \
+  ret_var##_m = func (mio_var##_m, p1, p2);                                    \
+  assert_errno (errno, ==, ex_err);                                            \
+  ret_var##_f = func (mio_var##_f, p1, p2);                                    \
+  assert_errno (errno, ==, ex_err);
 
 
 #define assert_cmpptr(p1, cmp, p2, n)                                          \
@@ -81,6 +92,13 @@ test_mio_mem_new_from_file (const gchar *file,
       g_assertion_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,        \
                            g_strdup_printf ("\"%.*s\" " #cmp " \"%.*s\"",      \
                                             n, (char *)__p1, n, (char *)__p2));\
+  } while (0)
+
+#define assert_errno(errno, cmp, val)                                          \
+  do { gint __errnum = (errno), __val = (val);                                 \
+    if (__errnum cmp __val) ; else                                             \
+      g_assertion_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,        \
+                           g_strerror (__errnum));                             \
   } while (0)
 
 
@@ -98,15 +116,19 @@ test_read_read (void)
   
   loop (i, 3) {
     n_m = mio_read (mio_m, ptr_m, sizeof (*ptr_m), sizeof (ptr_m));
+    assert_errno (errno, ==, 0);
     n_f = mio_read (mio_f, ptr_f, sizeof (*ptr_f), sizeof (ptr_f));
+    assert_errno (errno, ==, 0);
     g_assert_cmpuint (n_m, ==, n_f);
     assert_cmpptr (ptr_m, ==, ptr_f, n_m);
   }
-  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
     n_m = mio_read (mio_m, ptr_m, sizeof (*ptr_m), sizeof (ptr_m));
+    assert_errno (errno, ==, 0);
     n_f = mio_read (mio_f, ptr_f, sizeof (*ptr_f), sizeof (ptr_f));
+    assert_errno (errno, ==, 0);
     g_assert_cmpuint (n_m, ==, n_f);
     assert_cmpptr (ptr_m, ==, ptr_f, n_m);
   }
@@ -124,13 +146,13 @@ test_read_getc (void)
   TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
   
   loop (i, 3) {
-    TEST_ACTION_0 (c, mio_getc, mio)
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
   }
-  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
-    TEST_ACTION_0 (c, mio_getc, mio)
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
   }
   
@@ -149,14 +171,18 @@ test_read_gets (void)
   
   loop (i, 3) {
     mio_gets (mio_m, s_m, 255);
+    assert_errno (errno, ==, 0);
     mio_gets (mio_f, s_f, 255);
+    assert_errno (errno, ==, 0);
     g_assert_cmpstr (s_m, ==, s_f);
   }
-  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
     mio_gets (mio_m, s_m, 255);
+    assert_errno (errno, ==, 0);
     mio_gets (mio_f, s_f, 255);
+    assert_errno (errno, ==, 0);
     g_assert_cmpstr (s_m, ==, s_f);
   }
   
@@ -175,17 +201,17 @@ test_pos_tell (void)
   TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
   
   loop (i, 3) {
-    TEST_ACTION_0 (pos, mio_tell, mio)
+    TEST_ACTION_0 (pos, mio_tell, mio, 0)
     g_assert_cmpint (pos_m, ==, pos_f);
-    TEST_ACTION_0 (c, mio_getc, mio)
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
   }
-  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
-    TEST_ACTION_0 (pos, mio_tell, mio)
+    TEST_ACTION_0 (pos, mio_tell, mio, 0)
     g_assert_cmpint (pos_m, ==, pos_f);
-    TEST_ACTION_0 (c, mio_getc, mio)
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
   }
   
@@ -203,41 +229,41 @@ test_pos_seek (void)
   TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
   
   loop (i, 3) {
-    TEST_ACTION_2 (c, mio_seek, mio, i, SEEK_SET)
+    TEST_ACTION_2 (c, mio_seek, mio, i, SEEK_SET, 0)
     g_assert_cmpint (c_m, ==, c_f);
-    TEST_ACTION_0 (c, mio_getc, mio)
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
-    TEST_ACTION_0 (pos, mio_tell, mio)
+    TEST_ACTION_0 (pos, mio_tell, mio, 0)
     g_assert_cmpint (pos_m, ==, pos_f);
   }
-  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
-    TEST_ACTION_2 (c, mio_seek, mio, i, SEEK_CUR)
+    TEST_ACTION_2 (c, mio_seek, mio, i, SEEK_CUR, 0)
     g_assert_cmpint (c_m, ==, c_f);
-    TEST_ACTION_0 (pos, mio_tell, mio)
+    TEST_ACTION_0 (pos, mio_tell, mio, 0)
     g_assert_cmpint (pos_m, ==, pos_f);
-    TEST_ACTION_0 (c, mio_getc, mio)
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
   }
-  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
-    TEST_ACTION_2 (c, mio_seek, mio, -i, SEEK_END)
+    TEST_ACTION_2 (c, mio_seek, mio, -i, SEEK_END, 0)
     g_assert_cmpint (c_m, ==, c_f);
-    TEST_ACTION_0 (pos, mio_tell, mio)
+    TEST_ACTION_0 (pos, mio_tell, mio, 0)
     g_assert_cmpint (pos_m, ==, pos_f);
-    TEST_ACTION_0 (c, mio_getc, mio)
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
   }
-  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
-    TEST_ACTION_2 (c, mio_seek, mio, i, SEEK_SET)
+    TEST_ACTION_2 (c, mio_seek, mio, i, SEEK_SET, 0)
     g_assert_cmpint (c_m, ==, c_f);
-    TEST_ACTION_0 (c, mio_getc, mio)
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
-    TEST_ACTION_0 (pos, mio_tell, mio)
+    TEST_ACTION_0 (pos, mio_tell, mio, 0)
     g_assert_cmpint (pos_m, ==, pos_f);
   }
   
@@ -256,20 +282,24 @@ test_pos_rewind (void)
   
   loop (i, 3) {
     mio_rewind (mio_m);
+    assert_errno (errno, ==, 0);
     mio_rewind (mio_f);
-    TEST_ACTION_0 (pos, mio_tell, mio)
+    assert_errno (errno, ==, 0);
+    TEST_ACTION_0 (pos, mio_tell, mio, 0)
     g_assert_cmpint (pos_m, ==, pos_f);
-    TEST_ACTION_0 (c, mio_getc, mio)
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
   }
-  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
     mio_rewind (mio_m);
+    assert_errno (errno, ==, 0);
     mio_rewind (mio_f);
-    TEST_ACTION_0 (pos, mio_tell, mio)
+    assert_errno (errno, ==, 0);
+    TEST_ACTION_0 (pos, mio_tell, mio, 0)
     g_assert_cmpint (pos_m, ==, pos_f);
-    TEST_ACTION_0 (c, mio_getc, mio)
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
   }
   
