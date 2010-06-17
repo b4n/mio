@@ -60,6 +60,8 @@ test_mio_mem_new_from_file (const gchar *file,
   var##_m = test_mio_mem_new_from_file (file, rw);  \
   var##_f = mio_new_file (file, rw ? "r+b" : "rb"); \
   g_assert (var##_m != NULL && var##_f != NULL);
+#define TEST_DESTROY_MIO(var) \
+  mio##_m = mio##_f = (mio_free (var##_m), mio_free (var##_f), NULL);
 
 #define TEST_ACTION_0(ret_var, func, mio_var) \
   ret_var##_m = func (mio_var##_m);           \
@@ -107,6 +109,8 @@ test_read_read (void)
     g_assert_cmpuint (n_m, ==, n_f);
     assert_cmpptr (ptr_m, ==, ptr_f, n_m);
   }
+  
+  TEST_DESTROY_MIO (mio)
 }
 
 static void
@@ -128,6 +132,8 @@ test_read_getc (void)
     TEST_ACTION_0 (c, mio_getc, mio)
     g_assert_cmpint (c_m, ==, c_f);
   }
+  
+  TEST_DESTROY_MIO (mio)
 }
 
 static void
@@ -152,6 +158,8 @@ test_read_gets (void)
     mio_gets (mio_f, s_f, 255);
     g_assert_cmpstr (s_m, ==, s_f);
   }
+  
+  TEST_DESTROY_MIO (mio)
 }
 
 
