@@ -22,6 +22,7 @@
 #include <glib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 
 
@@ -243,6 +244,61 @@ mio_gets (MIO    *mio,
       } else {
         rv = fgets (s, (int)size, mio->impl.file.fp);
       }
+      break;
+  }
+  
+  return rv;
+}
+
+/* FIXME: should we support seeking out of bounds like lseek() seems to do? */
+gint
+mio_seek (MIO  *mio,
+          glong offset,
+          gint  whence)
+{
+  gint rv = -1;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      switch (whence) {
+        case SEEK_SET:
+          if (offset < 0 || (gsize)offset > mio->impl.mem.size) {
+            errno = EINVAL;
+          } else {
+            mio->impl.mem.pos = offset;
+            rv = 0;
+          }
+          break;
+        
+        case SEEK_CUR:
+          if ((offset < 0 && (gsize)-offset > mio->impl.mem.pos) ||
+              mio->impl.mem.pos + offset > mio->impl.mem.size) {
+            errno = EINVAL;
+          } else {
+            mio->impl.mem.pos += offset;
+            rv = 0;
+          }
+          break;
+        
+        case SEEK_END:
+          if (offset > 0 || (gsize)-offset > mio->impl.mem.size) {
+            errno = EINVAL;
+          } else {
+            mio->impl.mem.pos = mio->impl.mem.size - (gsize)-offset;
+            rv = 0;
+          }
+          break;
+        
+        default:
+          errno = EINVAL;
+      }
+      if (rv == 0 && mio->impl.mem.ungetch != EOF) {
+        mio->impl.mem.ungetch = EOF;
+      }
+      break;
+    
+    case MIO_TYPE_FILE:
+      rv = fseek (mio->impl.file.fp, offset, whence);
       break;
   }
   
