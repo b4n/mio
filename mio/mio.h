@@ -85,7 +85,7 @@ gsize       mio_write       (MIO         *mio,
                              gsize        size,
                              gsize        nmemb);
 gint        mio_getc        (MIO *mio);
-char       *mio_gets        (MIO   *mio,
+gchar      *mio_gets        (MIO   *mio,
                              gchar *s,
                              gsize  size);
 gint        mio_ungetc      (MIO *mio,
