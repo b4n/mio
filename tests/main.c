@@ -164,6 +164,35 @@ test_read_gets (void)
 }
 
 
+static void
+test_pos_tell (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio)
+  TEST_DECLARE_VAR (gint, c)
+  TEST_DECLARE_VAR (glong, pos)
+  gint i;
+  
+  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  
+  loop (i, 3) {
+    TEST_ACTION_0 (pos, mio_tell, mio)
+    g_assert_cmpint (pos_m, ==, pos_f);
+    TEST_ACTION_0 (c, mio_getc, mio)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X')
+  g_assert_cmpint (c_m, ==, c_f);
+  loop (i, 3) {
+    TEST_ACTION_0 (pos, mio_tell, mio)
+    g_assert_cmpint (pos_m, ==, pos_f);
+    TEST_ACTION_0 (c, mio_getc, mio)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  
+  TEST_DESTROY_MIO (mio)
+}
+
+
 #define ADD_TEST_FUNC(section, name) \
   g_test_add_func ("/"#section"/"#name, test_##section##_##name)
 
@@ -179,6 +208,7 @@ main (int     argc,
   //~ ADD_TEST_FUNC (write, write);
   //~ ADD_TEST_FUNC (write, putc);
   //~ ADD_TEST_FUNC (write, puts);
+  ADD_TEST_FUNC (pos, tell);
   
   g_test_run ();
   

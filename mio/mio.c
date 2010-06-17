@@ -248,3 +248,23 @@ mio_gets (MIO    *mio,
   
   return rv;
 }
+
+glong
+mio_tell (MIO *mio)
+{
+  glong rv = -1;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      rv = mio->impl.mem.pos;
+      break;
+    
+    case MIO_TYPE_FILE:
+      rv = ftell (mio->impl.file.fp);
+      break;
+  }
+  
+  return rv;
+}
+
+
