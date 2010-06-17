@@ -323,4 +323,19 @@ mio_tell (MIO *mio)
   return rv;
 }
 
+void
+mio_rewind (MIO *mio)
+{
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      mio->impl.mem.pos = 0;
+      mio->impl.mem.ungetch = EOF;
+      /* TODO: reset the error marker (clearerr()) */
+      break;
+    
+    case MIO_TYPE_FILE:
+      rewind (mio->impl.file.fp);
+      break;
+  }
+}
 
