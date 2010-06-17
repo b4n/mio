@@ -128,6 +128,7 @@ mio_read (MIO    *mio,
       if (mio->impl.mem.ungetch != EOF && nmemb > 0) {
         *((guchar *)ptr) = (guchar)mio->impl.mem.ungetch;
         mio->impl.mem.ungetch = EOF;
+        mio->impl.mem.pos++;
         if (size == 1) {
           n_read++;
         } else if (mio->impl.mem.pos + (size - 1) <= mio->impl.mem.size) {
@@ -166,6 +167,7 @@ mio_getc (MIO *mio)
       if (mio->impl.mem.ungetch != EOF) {
         rv = mio->impl.mem.ungetch;
         mio->impl.mem.ungetch = EOF;
+        mio->impl.mem.pos++;
       } else if (mio->impl.mem.pos < mio->impl.mem.size) {
         rv = mio->impl.mem.buf[mio->impl.mem.pos];
         mio->impl.mem.pos++;
@@ -190,6 +192,7 @@ mio_ungetc (MIO  *mio,
     case MIO_TYPE_MEMORY:
       if (mio->impl.mem.ungetch == EOF) {
         rv = mio->impl.mem.ungetch = ch;
+        mio->impl.mem.pos--;
       }
       break;
     
@@ -216,6 +219,7 @@ mio_gets (MIO    *mio,
         if (mio->impl.mem.ungetch != EOF) {
           s[i] = (gchar)mio->impl.mem.ungetch;
           mio->impl.mem.ungetch = EOF;
+          mio->impl.mem.pos++;
           i++;
         }
         for (; mio->impl.mem.pos < mio->impl.mem.size && i < (size - 1); i++) {
