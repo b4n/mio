@@ -149,6 +149,9 @@ mio_read (MIO    *mio,
             mio->impl.mem.pos += size;
           }
         }
+        if (mio->impl.mem.pos >= mio->impl.mem.size) {
+          mio->impl.mem.eof = TRUE;
+        }
       }
       break;
     
@@ -174,6 +177,8 @@ mio_getc (MIO *mio)
       } else if (mio->impl.mem.pos < mio->impl.mem.size) {
         rv = mio->impl.mem.buf[mio->impl.mem.pos];
         mio->impl.mem.pos++;
+      } else {
+        mio->impl.mem.eof = TRUE;
       }
       break;
     
@@ -196,6 +201,7 @@ mio_ungetc (MIO  *mio,
       if (ch != EOF && mio->impl.mem.ungetch == EOF) {
         rv = mio->impl.mem.ungetch = ch;
         mio->impl.mem.pos--;
+        mio->impl.mem.eof = FALSE;
       }
       break;
     
@@ -237,6 +243,9 @@ mio_gets (MIO    *mio,
           s[i] = 0;
           rv = s;
         }
+        if (mio->impl.mem.pos >= mio->impl.mem.size) {
+          mio->impl.mem.eof = TRUE;
+        }
       }
       break;
     
@@ -246,6 +255,57 @@ mio_gets (MIO    *mio,
       } else {
         rv = fgets (s, (int)size, mio->impl.file.fp);
       }
+      break;
+  }
+  
+  return rv;
+}
+
+void
+mio_clearerr (MIO *mio)
+{
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      mio->impl.mem.error = FALSE;
+      mio->impl.mem.eof = FALSE;
+      break;
+    
+    case MIO_TYPE_FILE:
+      clearerr (mio->impl.file.fp);
+      break;
+  }
+}
+
+gint
+mio_eof (MIO *mio)
+{
+  gint rv = 1;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      rv = mio->impl.mem.eof != FALSE;
+      break;
+    
+    case MIO_TYPE_FILE:
+      rv = feof (mio->impl.file.fp);
+      break;
+  }
+  
+  return rv;
+}
+
+gint
+mio_error (MIO *mio)
+{
+  gint rv = 1;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      rv = mio->impl.mem.error != FALSE;
+      break;
+    
+    case MIO_TYPE_FILE:
+      rv = ferror (mio->impl.file.fp);
       break;
   }
   
@@ -294,7 +354,8 @@ mio_seek (MIO  *mio,
         default:
           errno = EINVAL;
       }
-      if (rv == 0 && mio->impl.mem.ungetch != EOF) {
+      if (rv == 0) {
+        mio->impl.mem.eof = FALSE;
         mio->impl.mem.ungetch = EOF;
       }
       break;

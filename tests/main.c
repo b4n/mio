@@ -401,6 +401,161 @@ test_pos_setpos (void)
 }
 
 
+static void
+test_error_eof (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio)
+  TEST_DECLARE_VAR (gint, c)
+  TEST_DECLARE_VAR (glong, pos)
+  TEST_DECLARE_ARRAY (gchar, ptr, 255)
+  TEST_DECLARE_ARRAY (gchar, s, 255)
+  TEST_DECLARE_VAR (gchar*, sr)
+  TEST_DECLARE_VAR (gsize, n)
+  gint i;
+  
+  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  
+  loop (i, 3) {
+    TEST_ACTION_2 (pos, mio_seek, mio, -i, SEEK_END, 0)
+    g_assert_cmpint (pos_m, ==, pos_f);
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_eof, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  loop (i, 3) {
+    TEST_ACTION_2 (pos, mio_seek, mio, -i, SEEK_END, 0)
+    g_assert_cmpint (pos_m, ==, pos_f);
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_eof, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  TEST_ACTION_2 (pos, mio_seek, mio, 0, SEEK_END, 0)
+  g_assert_cmpint (pos_m, ==, pos_f);
+  TEST_ACTION_0 (c, mio_eof, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  /* read() checks */
+  n_m = mio_read (mio_m, ptr_m, sizeof (*ptr_m), sizeof (ptr_m));
+  assert_errno (errno, ==, 0);
+  n_f = mio_read (mio_f, ptr_f, sizeof (*ptr_f), sizeof (ptr_f));
+  assert_errno (errno, ==, 0);
+  g_assert_cmpuint (n_m, ==, n_f);
+  assert_cmpptr (ptr_m, ==, ptr_f, n_m);
+  TEST_ACTION_0 (c, mio_eof, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  TEST_ACTION_2 (pos, mio_seek, mio, 0, SEEK_SET, 0)
+  g_assert_cmpint (pos_m, ==, pos_f);
+  n_m = mio_read (mio_m, ptr_m, sizeof (*ptr_m), sizeof (ptr_m));
+  assert_errno (errno, ==, 0);
+  n_f = mio_read (mio_f, ptr_f, sizeof (*ptr_f), sizeof (ptr_f));
+  assert_errno (errno, ==, 0);
+  g_assert_cmpuint (n_m, ==, n_f);
+  assert_cmpptr (ptr_m, ==, ptr_f, n_m);
+  TEST_ACTION_0 (c, mio_eof, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  /* gets() checks */
+  sr_m = mio_gets (mio_m, s_m, 255);
+  assert_errno (errno, ==, 0);
+  sr_f = mio_gets (mio_f, s_f, 255);
+  assert_errno (errno, ==, 0);
+  g_assert_cmpstr (sr_m, ==, sr_f);
+  TEST_ACTION_0 (c, mio_eof, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  TEST_ACTION_2 (pos, mio_seek, mio, 0, SEEK_END, 0)
+  sr_m = mio_gets (mio_m, s_m, 255);
+  assert_errno (errno, ==, 0);
+  sr_f = mio_gets (mio_f, s_f, 255);
+  assert_errno (errno, ==, 0);
+  g_assert_cmpstr (sr_m, ==, sr_f);
+  TEST_ACTION_0 (c, mio_eof, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  
+  loop (i, 128) {
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_eof, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  
+  TEST_DESTROY_MIO (mio)
+}
+
+static void
+test_error_error (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio)
+  TEST_DECLARE_VAR (gint, c)
+  gint i;
+  
+  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  
+  TEST_ACTION_0 (c, mio_error, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  loop (i, 128) {
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_error, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  TEST_ACTION_2(c, mio_seek, mio, -2, SEEK_SET, EINVAL); errno = 0;
+  g_assert_cmpint (c_m, ==, c_f);
+  TEST_ACTION_0 (c, mio_error, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  
+  TEST_DESTROY_MIO (mio);
+}
+
+static void
+test_error_clearerr (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio)
+  TEST_DECLARE_VAR (gint, c)
+  gint i;
+  
+  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  
+  TEST_ACTION_0 (c, mio_error, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  mio_clearerr (mio_m);
+  assert_errno (errno, ==, 0);
+  mio_clearerr (mio_f);
+  assert_errno (errno, ==, 0);
+  TEST_ACTION_0 (c, mio_error, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  loop (i, 128) {
+    TEST_ACTION_0 (c, mio_error, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_getc, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+    TEST_ACTION_0 (c, mio_error, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+    mio_clearerr (mio_m);
+    assert_errno (errno, ==, 0);
+    mio_clearerr (mio_f);
+    assert_errno (errno, ==, 0);
+    TEST_ACTION_0 (c, mio_error, mio, 0)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
+  TEST_ACTION_0 (c, mio_error, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  TEST_ACTION_2(c, mio_seek, mio, -2, SEEK_SET, EINVAL); errno = 0;
+  g_assert_cmpint (c_m, ==, c_f);
+  TEST_ACTION_0 (c, mio_error, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  mio_clearerr (mio_m);
+  assert_errno (errno, ==, 0);
+  mio_clearerr (mio_f);
+  assert_errno (errno, ==, 0);
+  TEST_ACTION_0 (c, mio_error, mio, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  
+  TEST_DESTROY_MIO (mio);
+}
+
+
 
 #define ADD_TEST_FUNC(section, name) \
   g_test_add_func ("/"#section"/"#name, test_##section##_##name)
@@ -422,6 +577,9 @@ main (int     argc,
   ADD_TEST_FUNC (pos, rewind);
   ADD_TEST_FUNC (pos, getpos);
   ADD_TEST_FUNC (pos, setpos);
+  ADD_TEST_FUNC (error, eof);
+  ADD_TEST_FUNC (error, error);
+  ADD_TEST_FUNC (error, clearerr);
   
   g_test_run ();
   

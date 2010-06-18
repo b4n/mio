@@ -62,6 +62,8 @@ struct MIO {
       gsize           allocated_size;
       MIOReallocFunc  realloc_func;
       GDestroyNotify  free_func;
+      gboolean        error;
+      gboolean        eof;
     } mem;
   } impl;
 };
@@ -95,7 +97,7 @@ gint        mio_putc        (MIO *mio,
 gint        mio_puts        (MIO         *mio,
                              const gchar *s);
 
-gint        mio_clearerr    (MIO *mio);
+void        mio_clearerr    (MIO *mio);
 gint        mio_eof         (MIO *mio);
 gint        mio_error       (MIO *mio);
 gint        mio_seek        (MIO   *mio,
