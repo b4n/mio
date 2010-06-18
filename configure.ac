@@ -44,5 +44,6 @@ AC_TYPE_SIZE_T
 
 AC_CONFIG_FILES([Makefile
                  mio/Makefile
-                 tests/Makefile])
+                 tests/Makefile
+                 mio.pc])
 AC_OUTPUT
