@@ -191,7 +191,7 @@ mio_ungetc (MIO  *mio,
   
   switch (mio->type) {
     case MIO_TYPE_MEMORY:
-      if (mio->impl.mem.ungetch == EOF) {
+      if (ch != EOF && mio->impl.mem.ungetch == EOF) {
         rv = mio->impl.mem.ungetch = ch;
         mio->impl.mem.pos--;
       }
