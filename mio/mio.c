@@ -387,6 +387,7 @@ mio_setpos (MIO    *mio,
                 "on the same MIO object, which means there is a bug in "
                 "someone's code.",
                 (void *)mio, (void *)pos);
+    errno = EINVAL;
     return -1;
   }
   #endif /* MIO_DEBUG */
@@ -395,6 +396,7 @@ mio_setpos (MIO    *mio,
       if (pos->impl.mem > mio->impl.mem.size) {
         errno = EINVAL;
       } else {
+        mio->impl.mem.ungetch = EOF;
         mio->impl.mem.pos = pos->impl.mem;
         rv = 0;
       }
