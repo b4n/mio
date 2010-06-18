@@ -376,18 +376,11 @@ test_pos_setpos (void)
     assert_errno (errno, ==, 0);
     g_assert_cmpint (c_m, ==, c_f);
   }
+  /* don't ungetc() at start because C99 standard defines this as an
+   * "obsolescent feature", and the GNU libc does strange things with this */
+  TEST_ACTION_2 (c, mio_seek, mio, 1, SEEK_SET, 0)
   TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
-  /* those should fail because current posititon is -1 (because of the
-   * ungetc() when stream is at offset 0) */
-  c_m = mio_getpos (mio_m, &pos_m);
-  assert_errno (errno, ==, EIO); errno = 0;
-  c_f = mio_getpos (mio_f, &pos_f);
-  assert_errno (errno, ==, EIO); errno = 0;
-  g_assert_cmpint (c_m, ==, c_f);
-  
-  /* seek forward not to reproduce previous error */
-  TEST_ACTION_2 (c, mio_seek, mio, 1, SEEK_SET, 0)
   
   loop (i, 3) {
     c_m = mio_getpos (mio_m, &pos_m);
