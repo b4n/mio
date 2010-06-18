@@ -164,26 +164,27 @@ test_read_gets (void)
 {
   TEST_DECLARE_VAR (MIO*, mio)
   TEST_DECLARE_ARRAY (gchar, s, 255)
+  TEST_DECLARE_VAR (gchar*, sr)
   TEST_DECLARE_VAR (gint, c)
   gint i;
   
   TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
   
   loop (i, 3) {
-    mio_gets (mio_m, s_m, 255);
+    sr_m = mio_gets (mio_m, s_m, 255);
     assert_errno (errno, ==, 0);
-    mio_gets (mio_f, s_f, 255);
+    sr_f = mio_gets (mio_f, s_f, 255);
     assert_errno (errno, ==, 0);
-    g_assert_cmpstr (s_m, ==, s_f);
+    g_assert_cmpstr (sr_m, ==, sr_f);
   }
   TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
   loop (i, 3) {
-    mio_gets (mio_m, s_m, 255);
+    sr_m = mio_gets (mio_m, s_m, 255);
     assert_errno (errno, ==, 0);
-    mio_gets (mio_f, s_f, 255);
+    sr_f = mio_gets (mio_f, s_f, 255);
     assert_errno (errno, ==, 0);
-    g_assert_cmpstr (s_m, ==, s_f);
+    g_assert_cmpstr (sr_m, ==, sr_f);
   }
   
   TEST_DESTROY_MIO (mio)
