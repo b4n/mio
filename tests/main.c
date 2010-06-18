@@ -151,7 +151,7 @@ test_read_getc (void)
   }
   TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
   g_assert_cmpint (c_m, ==, c_f);
-  loop (i, 3) {
+  loop (i, 35) {
     TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
   }
