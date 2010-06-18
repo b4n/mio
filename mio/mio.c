@@ -350,7 +350,9 @@ mio_getpos (MIO    *mio,
     case MIO_TYPE_MEMORY:
       if (mio->impl.mem.pos == (gsize)-1) {
         /* this happens if ungetc() was called at the start of the stream */
+        #ifdef EIO
         errno = EIO;
+        #endif
       } else {
         pos->impl.mem = mio->impl.mem.pos;
         rv = 0;
