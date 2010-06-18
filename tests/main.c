@@ -381,9 +381,9 @@ test_pos_setpos (void)
   /* those should fail because current posititon is -1 (because of the
    * ungetc() when stream is at offset 0) */
   c_m = mio_getpos (mio_m, &pos_m);
-  assert_errno (errno, ==, EIO);
+  assert_errno (errno, ==, EIO); errno = 0;
   c_f = mio_getpos (mio_f, &pos_f);
-  assert_errno (errno, ==, EIO);
+  assert_errno (errno, ==, EIO); errno = 0;
   g_assert_cmpint (c_m, ==, c_f);
   
   /* seek forward not to reproduce previous error */
