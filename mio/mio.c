@@ -126,26 +126,28 @@ mio_read (MIO    *mio,
   
   switch (mio->type) {
     case MIO_TYPE_MEMORY:
-      if (mio->impl.mem.ungetch != EOF && nmemb > 0) {
-        *((guchar *)ptr) = (guchar)mio->impl.mem.ungetch;
-        mio->impl.mem.ungetch = EOF;
-        mio->impl.mem.pos++;
-        if (size == 1) {
-          n_read++;
-        } else if (mio->impl.mem.pos + (size - 1) <= mio->impl.mem.size) {
-          memcpy (&(((guchar *)ptr)[1]),
-                  &mio->impl.mem.buf[mio->impl.mem.pos], size - 1);
-          mio->impl.mem.pos += size - 1;
-          n_read++;
+      if (size != 0 && nmemb != 0) {
+        if (mio->impl.mem.ungetch != EOF) {
+          *((guchar *)ptr) = (guchar)mio->impl.mem.ungetch;
+          mio->impl.mem.ungetch = EOF;
+          mio->impl.mem.pos++;
+          if (size == 1) {
+            n_read++;
+          } else if (mio->impl.mem.pos + (size - 1) <= mio->impl.mem.size) {
+            memcpy (&(((guchar *)ptr)[1]),
+                    &mio->impl.mem.buf[mio->impl.mem.pos], size - 1);
+            mio->impl.mem.pos += size - 1;
+            n_read++;
+          }
         }
-      }
-      for (; n_read < nmemb; n_read++) {
-        if (mio->impl.mem.pos + size > mio->impl.mem.size) {
-          break;
-        } else {
-          memcpy (&(((guchar *)ptr)[n_read * size]),
-                  &mio->impl.mem.buf[mio->impl.mem.pos], size);
-          mio->impl.mem.pos += size;
+        for (; n_read < nmemb; n_read++) {
+          if (mio->impl.mem.pos + size > mio->impl.mem.size) {
+            break;
+          } else {
+            memcpy (&(((guchar *)ptr)[n_read * size]),
+                    &mio->impl.mem.buf[mio->impl.mem.pos], size);
+            mio->impl.mem.pos += size;
+          }
         }
       }
       break;
