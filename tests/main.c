@@ -22,7 +22,7 @@
 #include <errno.h>
 #include "mio/mio.h"
 
-#define TEST_FILE "test.input"
+#define TEST_FILE_R "test.input"
 
 
 static MIO *
@@ -113,7 +113,7 @@ test_read_read (void)
   TEST_DECLARE_VAR (gint, c)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   loop (i, 3) {
     n_m = mio_read (mio_m, ptr_m, sizeof (*ptr_m), sizeof (ptr_m));
@@ -144,7 +144,7 @@ test_read_getc (void)
   TEST_DECLARE_VAR (gint, c)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   loop (i, 3) {
     TEST_ACTION_0 (c, mio_getc, mio, 0)
@@ -169,7 +169,7 @@ test_read_gets (void)
   TEST_DECLARE_VAR (gint, c)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   loop (i, 3) {
     sr_m = mio_gets (mio_m, s_m, 255);
@@ -200,7 +200,7 @@ test_pos_tell (void)
   TEST_DECLARE_VAR (glong, pos)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   loop (i, 3) {
     TEST_ACTION_0 (pos, mio_tell, mio, 0)
@@ -228,7 +228,7 @@ test_pos_seek (void)
   TEST_DECLARE_VAR (glong, pos)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   loop (i, 3) {
     TEST_ACTION_2 (c, mio_seek, mio, i, SEEK_SET, 0)
@@ -280,7 +280,7 @@ test_pos_rewind (void)
   TEST_DECLARE_VAR (glong, pos)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   loop (i, 3) {
     mio_rewind (mio_m);
@@ -316,7 +316,7 @@ test_pos_getpos (void)
   TEST_DECLARE_VAR (MIOPos, pos)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   loop (i, 3) {
     c_m = mio_getpos (mio_m, &pos_m);
@@ -361,7 +361,7 @@ test_pos_setpos (void)
   TEST_DECLARE_VAR (MIOPos, pos)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   loop (i, 3) {
     c_m = mio_getpos (mio_m, &pos_m);
@@ -414,7 +414,7 @@ test_error_eof (void)
   TEST_DECLARE_VAR (gsize, n)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   loop (i, 3) {
     TEST_ACTION_2 (pos, mio_seek, mio, -i, SEEK_END, 0)
@@ -491,7 +491,7 @@ test_error_error (void)
   TEST_DECLARE_VAR (gint, c)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   TEST_ACTION_0 (c, mio_error, mio, 0)
   g_assert_cmpint (c_m, ==, c_f);
@@ -516,7 +516,7 @@ test_error_clearerr (void)
   TEST_DECLARE_VAR (gint, c)
   gint i;
   
-  TEST_CREATE_MIO (mio, TEST_FILE, FALSE)
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
   TEST_ACTION_0 (c, mio_error, mio, 0)
   g_assert_cmpint (c_m, ==, c_f);
