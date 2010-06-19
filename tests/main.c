@@ -305,8 +305,10 @@ test_pos_tell (void)
     TEST_ACTION_0 (c, mio_getc, mio, 0)
     g_assert_cmpint (c_m, ==, c_f);
   }
-  TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
-  g_assert_cmpint (c_m, ==, c_f);
+  if (mio_tell (mio_f) > 0) {
+    TEST_ACTION_1 (c, mio_ungetc, mio, 'X', 0)
+    g_assert_cmpint (c_m, ==, c_f);
+  }
   loop (i, 3) {
     TEST_ACTION_0 (pos, mio_tell, mio, 0)
     g_assert_cmpint (pos_m, ==, pos_f);
