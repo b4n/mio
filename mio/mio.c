@@ -82,6 +82,8 @@ mio_new_memory (guchar         *data,
     mio->impl.mem.allocated_size = size;
     mio->impl.mem.realloc_func = realloc_func;
     mio->impl.mem.free_func = free_func;
+    mio->impl.mem.eof = FALSE;
+    mio->impl.mem.error = FALSE;
   }
   
   return mio;
@@ -102,6 +104,8 @@ mio_free (MIO *mio)
         mio->impl.mem.allocated_size = 0;
         mio->impl.mem.realloc_func = NULL;
         mio->impl.mem.free_func = NULL;
+        mio->impl.mem.eof = FALSE;
+        mio->impl.mem.error = FALSE;
         break;
       
       case MIO_TYPE_FILE:
