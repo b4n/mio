@@ -98,7 +98,8 @@ test_mio_mem_new_from_file (const gchar *file,
   do { gint __errnum = (errno), __val = (val);                                 \
     if (__errnum cmp __val) ; else                                             \
       g_assertion_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,        \
-                           g_strerror (__errnum));                             \
+                           g_strdup_printf ("Unexpected errno %d (%s)",        \
+                                            __errnum, g_strerror (__errnum))); \
   } while (0)
 
 
