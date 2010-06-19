@@ -25,6 +25,10 @@
 #include <errno.h>
 
 
+/* minimal reallocation chunk size */
+#define MIO_CHUNK_SIZE 4096
+
+
 
 MIO *
 mio_new_file (const gchar *path,
@@ -165,6 +169,80 @@ mio_read (MIO    *mio,
   }
   
   return n_read;
+}
+
+static gboolean
+try_resize (MIO  *mio,
+            gsize new_size)
+{
+  gboolean success = FALSE;
+  
+  if (mio->impl.mem.realloc_func) {
+    if (G_UNLIKELY (new_size == G_MAXSIZE)) {
+      #ifdef EOVERFLOW
+      errno = EOVERFLOW;
+      #endif
+    } else {
+      if (new_size > mio->impl.mem.size) {
+        if (new_size <= mio->impl.mem.allocated_size) {
+          mio->impl.mem.size = new_size;
+          success = TRUE;
+        } else {
+          gsize   newsize;
+          guchar *newbuf;
+          
+          newsize = MAX (mio->impl.mem.allocated_size + MIO_CHUNK_SIZE,
+                         new_size);
+          newbuf = mio->impl.mem.realloc_func (mio->impl.mem.buf, newsize);
+          if (newbuf) {
+            mio->impl.mem.buf = newbuf;
+            mio->impl.mem.allocated_size = newsize;
+            mio->impl.mem.size = new_size;
+            success = TRUE;
+          }
+        }
+      } else {
+        guchar *newbuf;
+        
+        newbuf = mio->impl.mem.realloc_func (mio->impl.mem.buf, new_size);
+        if (G_LIKELY (newbuf || new_size == 0)) {
+          mio->impl.mem.buf = newbuf;
+          mio->impl.mem.allocated_size = new_size;
+          mio->impl.mem.size = new_size;
+          success = TRUE;
+        }
+      }
+    }
+  }
+  
+  return success;
+}
+
+gsize
+mio_write (MIO         *mio,
+           const void  *ptr,
+           gsize        size,
+           gsize        nmemb)
+{
+  gsize n_written = 0;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      if (size != 0 && nmemb != 0) {
+        if (try_resize (mio, mio->impl.mem.size + (size * nmemb))) {
+          memcpy (&mio->impl.mem.buf[mio->impl.mem.pos], ptr, size * nmemb);
+          mio->impl.mem.pos += size * nmemb;
+          n_written = nmemb;
+        }
+      }
+      break;
+    
+    case MIO_TYPE_FILE:
+      n_written = fwrite (ptr, size, nmemb, mio->impl.file.fp);
+      break;
+  }
+  
+  return n_written;
 }
 
 gint

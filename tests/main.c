@@ -23,6 +23,7 @@
 #include "mio/mio.h"
 
 #define TEST_FILE_R "test.input"
+#define TEST_FILE_W "test.output"
 
 
 static MIO *
@@ -43,6 +44,48 @@ test_mio_mem_new_from_file (const gchar *file,
   }
   
   return mio;
+}
+
+static gint
+test_miocmp (MIO *a,
+             MIO *b)
+{
+  guchar  pa[64], pb[64];
+  gsize   na = 0, nb = 0;
+  gint    rv = 0;
+  glong   posa, posb;
+  
+  if ((posa = mio_tell (a)) < 0) return G_MAXINT;
+  if ((posb = mio_tell (b)) < 0) return G_MININT;
+  mio_rewind (a);
+  mio_rewind (b);
+  while (rv == 0) {
+    na += mio_read (a, pa, 1, 64);
+    nb += mio_read (b, pb, 1, 64);
+    if (na != nb) {
+      rv = (gint)(na - nb);
+    } else if (na != 64) {
+      rv = mio_error (a) - mio_error (b);
+      break;
+    } else {
+      rv = memcmp (pa, pb, na);
+    }
+  }
+  if (mio_seek (a, posa, SEEK_SET) != 0) return G_MAXINT;
+  if (mio_seek (b, posb, SEEK_SET) != 0) return G_MININT;
+  
+  return rv;
+}
+
+static void
+test_random_mem (void  *ptr,
+                 gsize  n)
+{
+  gsize i;
+  
+  for (i = 0; i < n; i++) {
+    ((guchar *)ptr)[i] = (guchar)g_random_int_range (0, 255);
+  }
 }
 
 
@@ -85,6 +128,15 @@ test_mio_mem_new_from_file (const gchar *file,
   ret_var##_f = func (mio_var##_f, p1, p2);                                    \
   assert_errno (errno, ==, ex_err);
 
+#define assert_cmpmio(mio1, cmp, mio2)                                         \
+  do { MIO *__mio1 = (mio1), *__mio2 = (mio2);                                 \
+       gint __result = test_miocmp (__mio1, __mio2);                           \
+    if (__result cmp 0) ; else                                                 \
+      g_assertion_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,        \
+                           g_strdup_printf ("(MIO*)%p " #cmp " (MIO*)%p, %d",  \
+                                            (void *)__mio1, (void *)__mio2,    \
+                                            __result));  \
+  } while (0)
 
 #define assert_cmpptr(p1, cmp, p2, n)                                          \
   do { void *__p1 = (p1), *__p2 = (p2);                                        \
@@ -187,6 +239,51 @@ test_read_gets (void)
     assert_errno (errno, ==, 0);
     g_assert_cmpstr (sr_m, ==, sr_f);
   }
+  
+  TEST_DESTROY_MIO (mio)
+}
+
+
+static void
+test_write_write (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio)
+  gchar ptr[255] = {0};
+  TEST_DECLARE_VAR (gsize, n)
+  TEST_DECLARE_VAR (gint, c)
+  gint i;
+  
+  TEST_CREATE_MIO (mio, TEST_FILE_W, TRUE)
+  
+  assert_cmpmio (mio_m, ==, mio_f);
+  
+  test_random_mem (ptr, sizeof (*ptr) * sizeof (ptr));
+  loop (i, 3) {
+    n_m = mio_write (mio_m, ptr, sizeof *ptr, sizeof ptr);
+    assert_errno (errno, ==, 0);
+    n_f = mio_write (mio_f, ptr, sizeof *ptr, sizeof ptr);
+    assert_errno (errno, ==, 0);
+    g_assert_cmpuint (n_m, ==, n_f);
+  }
+  TEST_ACTION_2 (c, mio_seek, mio, sizeof *ptr * sizeof ptr / 2, SEEK_SET, 0)
+  g_assert_cmpint (c_m, ==, c_f);
+  n_m = mio_read (mio_m, ptr, sizeof *ptr, sizeof ptr);
+  assert_errno (errno, ==, 0);
+  n_f = mio_read (mio_f, ptr, sizeof *ptr, sizeof ptr);
+  assert_errno (errno, ==, 0);
+  g_assert_cmpuint (n_m, ==, n_f);
+  loop (i, 128) {
+    if (i > 64) {
+      memset (ptr, i, sizeof (*ptr) * sizeof (ptr));
+    }
+    n_m = mio_write (mio_m, ptr, sizeof *ptr, sizeof ptr);
+    assert_errno (errno, ==, 0);
+    n_f = mio_write (mio_f, ptr, sizeof *ptr, sizeof ptr);
+    assert_errno (errno, ==, 0);
+    g_assert_cmpuint (n_m, ==, n_f);
+  }
+  
+  assert_cmpmio (mio_m, ==, mio_f);
   
   TEST_DESTROY_MIO (mio)
 }
@@ -570,7 +667,7 @@ main (int     argc,
   ADD_TEST_FUNC (read, read);
   ADD_TEST_FUNC (read, getc);
   ADD_TEST_FUNC (read, gets);
-  //~ ADD_TEST_FUNC (write, write);
+  ADD_TEST_FUNC (write, write);
   //~ ADD_TEST_FUNC (write, putc);
   //~ ADD_TEST_FUNC (write, puts);
   ADD_TEST_FUNC (pos, tell);
