@@ -475,7 +475,8 @@ mio_rewind (MIO *mio)
     case MIO_TYPE_MEMORY:
       mio->impl.mem.pos = 0;
       mio->impl.mem.ungetch = EOF;
-      /* TODO: reset the error marker (clearerr()) */
+      mio->impl.mem.eof = FALSE;
+      mio->impl.mem.error = FALSE;
       break;
     
     case MIO_TYPE_FILE:
