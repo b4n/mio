@@ -19,6 +19,7 @@
 
 #include <glib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <errno.h>
 #include "mio/mio.h"
 
@@ -88,6 +89,20 @@ test_random_mem (void  *ptr,
   }
 }
 
+static void verbose (const gchar *fmt, ...) G_GNUC_PRINTF (1, 2);
+static void
+verbose (const gchar *fmt,
+         ...)
+{
+  if (g_test_verbose ()) {
+    va_list ap;
+    
+    va_start (ap, fmt);
+    vfprintf (stderr, fmt, ap);
+    va_end (ap);
+  }
+}
+
 
 #define range(var, start, end, step) var = start; var < end; var += step
 #define range_loop(var, start, end, step) for (range(var, start, end, step))
@@ -141,14 +156,14 @@ test_random_mem (void  *ptr,
 
 
 /* read */
-#define READ(ret, mio, ptr, size, nmemb)                                        \
-  (ret = mio_read (mio, ptr, size, nmemb),                                      \
-   ((ret < nmemb)                                                               \
-    ? ((mio_error (mio))                                                        \
-       ? fprintf (stderr, "mio_read() failed (read %"G_GSIZE_FORMAT")\n", ret)  \
-       : fprintf (stderr, "mio_read() succeeded (read %"G_GSIZE_FORMAT", "      \
-                          "queried %"G_GSIZE_FORMAT")\n", ret, nmemb))          \
-    : fprintf (stderr, "mio_read() succeeded (read %"G_GSIZE_FORMAT")\n", ret)),\
+#define READ(ret, mio, ptr, size, nmemb)                                       \
+  (ret = mio_read (mio, ptr, size, nmemb),                                     \
+   ((ret < nmemb)                                                              \
+    ? ((mio_error (mio))                                                       \
+       ? verbose ("mio_read() failed (read %"G_GSIZE_FORMAT")\n", ret)         \
+       : verbose ("mio_read() succeeded (read %"G_GSIZE_FORMAT", "             \
+                  "queried %"G_GSIZE_FORMAT")\n", ret, nmemb))                 \
+    : verbose ("mio_read() succeeded (read %"G_GSIZE_FORMAT")\n", ret)),       \
    ret)
 #define TEST_READ(ret, mio, ptr, size, nmemb, ex_err) \
   ret##_f = READ(ret##_f, mio##_f, ptr##_f, size##_f, nmemb##_f); \
@@ -162,10 +177,10 @@ test_random_mem (void  *ptr,
 #define GETC(ret, mio)                                                         \
   (ret = mio_getc (mio),                                                       \
    ((ret == EOF)                                                               \
-    ? fprintf (stderr, ((mio_eof (mio))                                        \
-                        ? "mio_getc() reached EOF\n"                           \
-                        : "mio_getc() failed\n"))                              \
-    : fprintf (stderr, "mio_getc() succeeded (c = %d ('%c'))\n", ret, ret)),   \
+    ? verbose (((mio_eof (mio))                                                \
+                ? "mio_getc() reached EOF\n"                                   \
+                : "mio_getc() failed\n"))                                      \
+    : verbose ("mio_getc() succeeded (c = %d ('%c'))\n", ret, ret)),           \
    ret)
 #define TEST_GETC(ret, mio, ex_err)         \
   ret##_f = GETC(ret##_f, mio##_f);         \
@@ -178,10 +193,10 @@ test_random_mem (void  *ptr,
 #define GETS(ret, mio, s, size)                                                \
   (ret = mio_gets (mio, s, size),                                              \
    ((ret != s)                                                                 \
-    ? fprintf (stderr, ((mio_error (mio))                                      \
-                        ? "mio_gets() failed\n"                                \
-                        : "mio_gets() reached EOF\n"))                         \
-    : fprintf (stderr, "mio_gets() succeeded (s = \"%s\")\n", ret)),           \
+    ? verbose (((mio_error (mio))                                              \
+                ? "mio_gets() failed\n"                                        \
+                : "mio_gets() reached EOF\n"))                                 \
+    : verbose ("mio_gets() succeeded (s = \"%s\")\n", ret)),                   \
    ret)
 #define TEST_GETS(ret, mio, s, size, ex_err)           \
   ret##_f = GETS(ret##_f, mio##_f, s##_f, size##_f);   \
@@ -194,8 +209,8 @@ test_random_mem (void  *ptr,
 #define UNGETC(ret, mio, c)                                                    \
   (ret = mio_ungetc (mio, c),                                                  \
    ((ret == EOF && c != EOF)                                                   \
-    ? fprintf (stderr, "mio_ungetc(%d ('%c')) failed\n", c, c)                 \
-    : fprintf (stderr, "mio_ungetc(%d ('%c')) succeeded\n", c, c)),            \
+    ? verbose ("mio_ungetc(%d ('%c')) failed\n", c, c)                         \
+    : verbose ("mio_ungetc(%d ('%c')) succeeded\n", c, c)),                    \
    ret)
 #define TEST_UNGETC(ret, mio, c, ex_err)    \
   ret##_f = UNGETC(ret##_f, mio##_f, c);    \
@@ -208,9 +223,9 @@ test_random_mem (void  *ptr,
 #define WRITE(ret, mio, ptr, size, nmemb)                                      \
   (ret = mio_write (mio, ptr, size, nmemb),                                    \
    ((ret < nmemb)                                                              \
-    ? fprintf (stderr, "mio_write() failed (wrote %"G_GSIZE_FORMAT", "         \
-                       "queried %"G_GSIZE_FORMAT")\n", ret, nmemb)             \
-    : fprintf (stderr, "mio_write() succeeded (wrote %"G_GSIZE_FORMAT")\n",    \
+    ? verbose ("mio_write() failed (wrote %"G_GSIZE_FORMAT", "                 \
+               "queried %"G_GSIZE_FORMAT")\n", ret, nmemb)                     \
+    : verbose ("mio_write() succeeded (wrote %"G_GSIZE_FORMAT")\n",            \
                ret)),                                                          \
    ret)
 #define TEST_WRITE(ret, mio, ptr, size, nmemb, ex_err)   \
@@ -224,9 +239,9 @@ test_random_mem (void  *ptr,
 #define SEEK(ret, mio, off, wh)                                                \
   (ret = mio_seek (mio, off, wh),                                              \
    ((ret != 0)                                                                 \
-    ? fprintf (stderr, "mio_seek(%ld, %d) failed: %s\n",                       \
+    ? verbose ("mio_seek(%ld, %d) failed: %s\n",                               \
                (glong)off, wh, g_strerror (errno))                             \
-    : fprintf (stderr, "mio_seek(%ld, %d) succeeded\n", (glong)off, wh)),      \
+    : verbose ("mio_seek(%ld, %d) succeeded\n", (glong)off, wh)),              \
    ret)
 #define TEST_SEEK(ret, mio, off, wh, ex_err)    \
   ret##_f = SEEK(ret##_f, mio##_f, off, wh);    \
@@ -239,8 +254,8 @@ test_random_mem (void  *ptr,
 #define TELL(ret, mio)                                                         \
   (ret = mio_tell (mio),                                                       \
    ((ret == -1)                                                                \
-    ? fprintf (stderr, "mio_tell() failed: %s\n", g_strerror (errno))          \
-    : fprintf (stderr, "mio_tell() succeeded (pos = %ld)\n", ret)),            \
+    ? verbose ("mio_tell() failed: %s\n", g_strerror (errno))                  \
+    : verbose ("mio_tell() succeeded (pos = %ld)\n", ret)),                    \
    ret)
 #define TEST_TELL(ret, mio, ex_err)     \
   ret##_f = TELL(ret##_f, mio##_f);     \
@@ -251,7 +266,7 @@ test_random_mem (void  *ptr,
 
 /* rewind */
 #define REWIND(mio)                                                            \
-  mio_rewind (mio), fprintf (stderr, "mio_rewind()\n")
+  (mio_rewind (mio), verbose ("mio_rewind()\n"))
 #define TEST_REWIND(mio, ex_err)    \
   REWIND (mio##_f);                 \
   assert_errno (errno, ==, ex_err); \
@@ -262,8 +277,8 @@ test_random_mem (void  *ptr,
 #define GETPOS(ret, mio, pos)                                                  \
   (ret = mio_getpos (mio, pos),                                                \
    ((ret != 0)                                                                 \
-    ? fprintf (stderr, "mio_getpos() failed: %s\n", g_strerror (errno))        \
-    : fprintf (stderr, "mio_getpos() succeeded\n")),                           \
+    ? verbose ("mio_getpos() failed: %s\n", g_strerror (errno))                \
+    : verbose ("mio_getpos() succeeded\n")),                                   \
    ret)
 #define TEST_GETPOS(ret, mio, pos, ex_err)        \
   ret##_f = GETPOS(ret##_f, mio##_f, pos##_f);    \
@@ -276,8 +291,8 @@ test_random_mem (void  *ptr,
 #define SETPOS(ret, mio, pos)                                                  \
   (ret = mio_setpos (mio, pos),                                                \
    ((ret != 0)                                                                 \
-    ? fprintf (stderr, "mio_setpos() failed: %s\n", g_strerror (errno))        \
-    : fprintf (stderr, "mio_setpos() succeeded\n")),                           \
+    ? verbose ("mio_setpos() failed: %s\n", g_strerror (errno))                \
+    : verbose ("mio_setpos() succeeded\n")),                                   \
    ret)
 #define TEST_SETPOS(ret, mio, pos, ex_err)        \
   ret##_f = SETPOS(ret##_f, mio##_f, pos##_f);    \
@@ -289,7 +304,7 @@ test_random_mem (void  *ptr,
 /* eof */
 #define EOF_(ret, mio)                                                         \
   (ret = mio_eof (mio),                                                        \
-   fprintf (stderr, "mio_eof() %s\n", ret ? "reached EOF" : "not reached EOF"),\
+   verbose ("mio_eof() %s\n", ret ? "reached EOF" : "not reached EOF"),        \
    ret)
 #define TEST_EOF(ret, mio)              \
   ret##_f = EOF_(ret##_f, mio##_f);     \
@@ -297,9 +312,9 @@ test_random_mem (void  *ptr,
   g_assert_cmpint (ret##_f, ==, ret##_m)
   
 /* error */
-#define ERROR(ret, mio)                                                         \
-  (ret = mio_error (mio),                                                       \
-   fprintf (stderr, "mio_error() reported %s\n", ret ? "an error" : "no error"),\
+#define ERROR(ret, mio)                                                        \
+  (ret = mio_error (mio),                                                      \
+   verbose ("mio_error() reported %s\n", ret ? "an error" : "no error"),       \
    ret)
 #define TEST_ERROR(ret, mio)             \
   ret##_f = ERROR(ret##_f, mio##_f);     \
@@ -307,8 +322,8 @@ test_random_mem (void  *ptr,
   g_assert_cmpint (ret##_f, ==, ret##_m)
   
 /* error */
-#define CLEARERR(mio)                                                     \
-  mio_clearerr (mio), fprintf (stderr, "mio_clearerr()\n")
+#define CLEARERR(mio)                                                          \
+  (mio_clearerr (mio), verbose ("mio_clearerr()\n"))
 #define TEST_CLEARERR(mio)  \
   (CLEARERR(mio##_f),       \
    CLEARERR(mio##_m))
