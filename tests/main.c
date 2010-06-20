@@ -573,9 +573,11 @@ test_pos_setpos (void)
   }
   /* don't ungetc() at start because C99 standard defines this as an
    * "obsolescent feature", and the GNU libc does strange things with this */
-  TEST_SEEK (c, mio, 1, SEEK_SET, -1);
-  if (c_f > 0) {
-    TEST_UNGETC (c, mio, 'X', 0);
+  if (mio_m->impl.mem.size > 0) { /* see test_pos_seek */
+    TEST_SEEK (c, mio, 1, SEEK_SET, -1);
+    if (c_f > 0) {
+      TEST_UNGETC (c, mio, 'X', 0);
+    }
   }
   
   loop (i, 3) {
