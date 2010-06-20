@@ -444,12 +444,15 @@ test_pos_tell (void)
   
   loop (i, 3) {
     TEST_TELL (pos, mio, 0);
+    TEST_GETC (c, mio, 0);
   }
-  if (mio_tell (mio_f) > 0) {
+  TEST_TELL (pos, mio, 0);
+  if (pos_f > 0) {
     TEST_UNGETC (c, mio, 'X', 0);
   }
   loop (i, 3) {
     TEST_TELL (pos, mio, 0);
+    TEST_GETC (c, mio, 0);
   }
   
   TEST_DESTROY_MIO (mio)
