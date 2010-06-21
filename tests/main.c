@@ -249,6 +249,20 @@ verbose (const gchar *fmt,
   assert_errno (errno, ==, ex_err);       \
   g_assert_cmpint (ret##_f, ==, ret##_m)
 
+/* puts */
+#define PUTS(ret, mio, s)                                                      \
+  (ret = mio_puts (mio, s),                                                    \
+   ((ret == EOF)                                                               \
+    ? verbose ("mio_puts(\"%s\") failed\n", s)                                 \
+    : verbose ("mio_puts(\"%s\") succeeded\n", s)),                            \
+   ret)
+#define TEST_PUTS(ret, mio, s, ex_err)    \
+  ret##_f = PUTS(ret##_f, mio##_f, s);    \
+  assert_errno (errno, ==, ex_err);       \
+  ret##_m = PUTS(ret##_m, mio##_m, s);    \
+  assert_errno (errno, ==, ex_err);       \
+  g_assert_cmpint (ret##_f, ==, ret##_m)
+
 /* seek */
 #define SEEK(ret, mio, off, wh)                                                \
   (ret = mio_seek (mio, off, wh),                                              \
@@ -464,6 +478,36 @@ test_write_putc (void)
     TEST_PUTC (c, mio, ptr[i], 0);
   }
   TEST_PUTC (c, mio, 4096, 0);
+  
+  assert_cmpmio (mio_m, ==, mio_f);
+  
+  TEST_DESTROY_MIO (mio)
+}
+
+static void
+test_write_puts (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio, NULL)
+  const gchar *strs[] = {
+    "a",
+    "bcdef",
+    "\025\075\002",
+    "hi all",
+    ""
+  };
+  TEST_DECLARE_VAR (gint, c, 0)
+  guint i;
+  
+  TEST_CREATE_MIO (mio, TEST_FILE_W, TRUE)
+  
+  loop (i, (G_N_ELEMENTS (strs) / 2)) {
+    TEST_PUTS (c, mio, strs[i], 0);
+  }
+  TEST_SEEK (c, mio, 1, SEEK_SET, 0);
+  loop (i, G_N_ELEMENTS (strs)) {
+    TEST_PUTS (c, mio, strs[i], 0);
+  }
+  TEST_PUTS (c, mio, "\022\074hello\033", 0);
   
   assert_cmpmio (mio_m, ==, mio_f);
   
@@ -747,7 +791,7 @@ main (int     argc,
   ADD_TEST_FUNC (read, gets);
   ADD_TEST_FUNC (write, write);
   ADD_TEST_FUNC (write, putc);
-  //~ ADD_TEST_FUNC (write, puts);
+  ADD_TEST_FUNC (write, puts);
   ADD_TEST_FUNC (pos, tell);
   ADD_TEST_FUNC (pos, seek);
   ADD_TEST_FUNC (pos, rewind);
