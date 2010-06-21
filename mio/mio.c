@@ -218,6 +218,19 @@ try_resize (MIO  *mio,
   return success;
 }
 
+static gboolean
+try_ensure_space (MIO  *mio,
+                  gsize n)
+{
+  gboolean success = TRUE;
+  
+  if (mio->impl.mem.pos + n > mio->impl.mem.size) {
+    success = try_resize (mio, mio->impl.mem.pos + n);
+  }
+  
+  return success;
+}
+
 gsize
 mio_write (MIO         *mio,
            const void  *ptr,
@@ -229,7 +242,7 @@ mio_write (MIO         *mio,
   switch (mio->type) {
     case MIO_TYPE_MEMORY:
       if (size != 0 && nmemb != 0) {
-        if (try_resize (mio, mio->impl.mem.size + (size * nmemb))) {
+        if (try_ensure_space (mio, size * nmemb)) {
           memcpy (&mio->impl.mem.buf[mio->impl.mem.pos], ptr, size * nmemb);
           mio->impl.mem.pos += size * nmemb;
           n_written = nmemb;
@@ -253,7 +266,7 @@ mio_putc (MIO  *mio,
   
   switch (mio->type) {
     case MIO_TYPE_MEMORY:
-      if (try_resize (mio, mio->impl.mem.size + 1)) {
+      if (try_ensure_space (mio, 1)) {
         mio->impl.mem.buf[mio->impl.mem.pos] = (guchar)c;
         mio->impl.mem.pos++;
         rv = (gint)((guchar)c);
@@ -279,7 +292,7 @@ mio_puts (MIO          *mio,
       gsize len;
       
       len = strlen (s);
-      if (try_resize (mio, mio->impl.mem.size + len)) {
+      if (try_ensure_space (mio, len)) {
         memcpy (&mio->impl.mem.buf[mio->impl.mem.pos], s, len);
         mio->impl.mem.pos += len;
         rv = 1;
