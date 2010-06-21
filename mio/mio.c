@@ -246,6 +246,29 @@ mio_write (MIO         *mio,
 }
 
 gint
+mio_putc (MIO  *mio,
+          gint  c)
+{
+  gint rv = EOF;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY:
+      if (try_resize (mio, mio->impl.mem.size + 1)) {
+        mio->impl.mem.buf[mio->impl.mem.pos] = (guchar)c;
+        mio->impl.mem.pos++;
+        rv = (gint)((guchar)c);
+      }
+      break;
+    
+    case MIO_TYPE_FILE:
+      rv = fputc (c, mio->impl.file.fp);
+      break;
+  }
+  
+  return rv;
+}
+
+gint
 mio_getc (MIO *mio)
 {
   gint rv = EOF;

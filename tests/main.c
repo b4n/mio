@@ -235,6 +235,20 @@ verbose (const gchar *fmt,
   assert_errno (errno, ==, ex_err);                      \
   g_assert_cmpuint (ret##_f, ==, ret##_m)
 
+/* putc */
+#define PUTC(ret, mio, c)                                                      \
+  (ret = mio_putc (mio, c),                                                    \
+   ((ret == EOF)                                                               \
+    ? verbose ("mio_putc(%d ('%c')) failed\n", c, c)                           \
+    : verbose ("mio_putc(%d ('%c')) succeeded\n", c, c)),                      \
+   ret)
+#define TEST_PUTC(ret, mio, c, ex_err)    \
+  ret##_f = PUTC(ret##_f, mio##_f, c);    \
+  assert_errno (errno, ==, ex_err);       \
+  ret##_m = PUTC(ret##_m, mio##_m, c);    \
+  assert_errno (errno, ==, ex_err);       \
+  g_assert_cmpint (ret##_f, ==, ret##_m)
+
 /* seek */
 #define SEEK(ret, mio, off, wh)                                                \
   (ret = mio_seek (mio, off, wh),                                              \
@@ -425,6 +439,31 @@ test_write_write (void)
     }
     TEST_WRITE (n, mio, ptr, sizeof *ptr, sizeof ptr, 0);
   }
+  
+  assert_cmpmio (mio_m, ==, mio_f);
+  
+  TEST_DESTROY_MIO (mio)
+}
+
+static void
+test_write_putc (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio, NULL)
+  gchar ptr[255] = {0};
+  TEST_DECLARE_VAR (gint, c, 0)
+  gint i;
+  
+  TEST_CREATE_MIO (mio, TEST_FILE_W, TRUE)
+  
+  test_random_mem (ptr, sizeof (*ptr) * sizeof (ptr));
+  loop (i, 3) {
+    TEST_PUTC (c, mio, ptr[i], 0);
+  }
+  TEST_SEEK (c, mio, 1, SEEK_SET, 0);
+  loop (i, 128) {
+    TEST_PUTC (c, mio, ptr[i], 0);
+  }
+  TEST_PUTC (c, mio, 4096, 0);
   
   assert_cmpmio (mio_m, ==, mio_f);
   
@@ -707,7 +746,7 @@ main (int     argc,
   ADD_TEST_FUNC (read, getc);
   ADD_TEST_FUNC (read, gets);
   ADD_TEST_FUNC (write, write);
-  //~ ADD_TEST_FUNC (write, putc);
+  ADD_TEST_FUNC (write, putc);
   //~ ADD_TEST_FUNC (write, puts);
   ADD_TEST_FUNC (pos, tell);
   ADD_TEST_FUNC (pos, seek);
