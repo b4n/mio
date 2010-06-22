@@ -20,6 +20,7 @@
 #include "mio.h"
 
 #include <glib.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -304,6 +305,72 @@ mio_puts (MIO          *mio,
       rv = fputs (s, mio->impl.file.fp);
       break;
   }
+  
+  return rv;
+}
+
+gint
+mio_vprintf (MIO         *mio,
+             const gchar *format,
+             va_list      ap)
+{
+  gint    rv = -1;
+  
+  switch (mio->type) {
+    case MIO_TYPE_MEMORY: {
+      gint    n;
+      gchar   tmp;
+      gsize   old_pos;
+      gsize   old_size;
+      va_list ap_copy;
+      
+      old_pos = mio->impl.mem.pos;
+      old_size = mio->impl.mem.size;
+      va_copy (ap_copy, ap);
+      /* compute the size we will need into the buffer */
+      n = vsnprintf (&tmp, 1, format, ap_copy);
+      va_end (ap_copy);
+      if (n >= 0 && try_ensure_space (mio, ((guint)n) + 1)) {
+        guchar c;
+        
+        /* backup character at n+1 that will be overwritten by a \0 ... */
+        c = mio->impl.mem.buf[mio->impl.mem.pos + (guint)n];
+        rv = vsnprintf ((gchar *)&mio->impl.mem.buf[mio->impl.mem.pos],
+                        (guint)n + 1, format, ap);
+        /* ...and restore it */
+        mio->impl.mem.buf[mio->impl.mem.pos + (guint)n] = c;
+        if (G_LIKELY (rv >= 0 && rv == n)) {
+          /* re-compute the actual size since we might have allocated one byte
+           * more than needed */
+          mio->impl.mem.size = MAX (old_size, old_pos + (guint)rv);
+          mio->impl.mem.pos += (guint)rv;
+        } else {
+          mio->impl.mem.size = old_size;
+          rv = -1;
+        }
+      }
+      break;
+    }
+    
+    case MIO_TYPE_FILE:
+      rv = vfprintf (mio->impl.file.fp, format, ap);
+      break;
+  }
+  
+  return rv;
+}
+
+gint
+mio_printf (MIO         *mio,
+            const gchar *format,
+            ...)
+{
+  gint    rv;
+  va_list ap;
+  
+  va_start (ap, format);
+  rv = mio_vprintf (mio, format, ap);
+  va_end (ap);
   
   return rv;
 }
@@ -616,4 +683,3 @@ mio_setpos (MIO    *mio,
   
   return rv;
 }
-

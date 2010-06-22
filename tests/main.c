@@ -47,6 +47,47 @@ test_mio_mem_new_from_file (const gchar *file,
   return mio;
 }
 
+/* note: this function might change the cursor position */
+static void
+test_mio_dump (MIO *mio)
+{
+  if (g_test_verbose ()) {
+    switch (mio->type) {
+      case MIO_TYPE_MEMORY: {
+        gsize i;
+        
+        fprintf (stderr, "---[ memory dump start ]---\n");
+        for (i = 0; i < mio->impl.mem.size; i++) {
+          fprintf (stderr, "%.2x ", mio->impl.mem.buf[i]);
+          if ((i % 8) == 0) {
+            fprintf (stderr, "\n");
+          }
+        }
+        fprintf (stderr, "\n----------[ end ]----------\n");
+        break;
+      }
+      
+      case MIO_TYPE_FILE: {
+        glong length;
+        glong i;
+        
+        mio_seek (mio, 0, SEEK_END);
+        length = mio_tell (mio);
+        mio_rewind (mio);
+        fprintf (stderr, "---[ file dump start ]---\n");
+        for (i = 0; i < length; i++) {
+          fprintf (stderr, "%.2x ", mio_getc (mio));
+          if ((i % 8) == 0) {
+            fprintf (stderr, "\n");
+          }
+        }
+        fprintf (stderr, "\n----------[ end ]----------\n");
+        break;
+      }
+    }
+  }
+}
+
 static gint
 test_miocmp (MIO *a,
              MIO *b)
@@ -130,10 +171,11 @@ verbose (const gchar *fmt,
   do { MIO *__mio1 = (mio1), *__mio2 = (mio2);                                 \
        gint __result = test_miocmp (__mio1, __mio2);                           \
     if (__result cmp 0) ; else                                                 \
+      /*test_mio_dump (__mio1), test_mio_dump (__mio2), */                     \
       g_assertion_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,        \
                            g_strdup_printf ("(MIO*)%p " #cmp " (MIO*)%p, %d",  \
                                             (void *)__mio1, (void *)__mio2,    \
-                                            __result));  \
+                                            __result));                        \
   } while (0)
 
 #define assert_cmpptr(p1, cmp, p2, n)                                          \
@@ -514,6 +556,34 @@ test_write_puts (void)
   TEST_DESTROY_MIO (mio)
 }
 
+static void
+test_write_printf (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio, NULL)
+  TEST_DECLARE_VAR (gint, c, 0)
+  
+  TEST_CREATE_MIO (mio, TEST_FILE_W, TRUE)
+  
+  c_f = mio_printf (mio_f, "hi! %d %s %ld %p\n", 42, "boy", 84L, (void *)mio_f);
+  if (c_f < 0)  verbose ("mio_printf() failed\n");
+  else          verbose ("mio_printf() succeeded\n");
+  c_m = mio_printf (mio_m, "hi! %d %s %ld %p\n", 42, "boy", 84L, (void *)mio_f);
+  if (c_f < 0)  verbose ("mio_printf() failed\n");
+  else          verbose ("mio_printf() succeeded\n");
+  g_assert_cmpint (c_f, ==, c_m);
+  c_f = mio_printf (mio_f, "%.42s %f", "AAAAAAAH\n", 2.854);
+  if (c_f < 0)  verbose ("mio_printf() failed\n");
+  else          verbose ("mio_printf() succeeded\n");
+  c_m = mio_printf (mio_m, "%.42s %f", "AAAAAAAH\n", 2.854);
+  if (c_f < 0)  verbose ("mio_printf() failed\n");
+  else          verbose ("mio_printf() succeeded\n");
+  g_assert_cmpint (c_f, ==, c_m);
+  
+  assert_cmpmio (mio_m, ==, mio_f);
+  
+  TEST_DESTROY_MIO (mio)
+}
+
 
 static void
 test_pos_tell (void)
@@ -792,6 +862,7 @@ main (int     argc,
   ADD_TEST_FUNC (write, write);
   ADD_TEST_FUNC (write, putc);
   ADD_TEST_FUNC (write, puts);
+  ADD_TEST_FUNC (write, printf);
   ADD_TEST_FUNC (pos, tell);
   ADD_TEST_FUNC (pos, seek);
   ADD_TEST_FUNC (pos, rewind);

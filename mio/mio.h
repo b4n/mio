@@ -22,6 +22,7 @@
 
 #include <glib.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 
 enum MIOType {
@@ -96,6 +97,13 @@ gint        mio_putc        (MIO *mio,
                              gint c);
 gint        mio_puts        (MIO         *mio,
                              const gchar *s);
+
+gint        mio_vprintf     (MIO         *mio,
+                             const gchar *format,
+                             va_list      ap);
+gint        mio_printf      (MIO         *mio,
+                             const gchar *format,
+                             ...) G_GNUC_PRINTF (2, 3);
 
 void        mio_clearerr    (MIO *mio);
 gint        mio_eof         (MIO *mio);
