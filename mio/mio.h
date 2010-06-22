@@ -25,19 +25,41 @@
 #include <stdarg.h>
 
 
-enum MIOType {
+/**
+ * MIOType:
+ * @MIO_TYPE_FILE: #MIO object works on a file
+ * @MIO_TYPE_MEMORY: #MIO object works in-memory
+ * 
+ * Existing implementations.
+ */
+enum _MIOType {
   MIO_TYPE_FILE,
   MIO_TYPE_MEMORY
 };
 
-typedef enum MIOType    MIOType;
-typedef struct MIO      MIO;
-typedef struct MIOPos   MIOPos;
+typedef enum _MIOType   MIOType;
+typedef struct _MIO     MIO;
+typedef struct _MIOPos  MIOPos;
+/**
+ * MIOReallocFunc:
+ * @ptr: Pointer to the memory to resize
+ * @size: New size of the memory pointed by @ptr
+ * 
+ * Type of a function following the realloc() semantic.
+ */
 /* should be GReallocFunc but it's only defined by GIO */
-typedef gpointer (* MIOReallocFunc) (gpointer data,
+typedef gpointer (* MIOReallocFunc) (gpointer ptr,
                                      gsize    size);
 
-struct MIOPos {
+/**
+ * MIOPos:
+ * 
+ * An object representing the state of a #MIO stream. This object can be
+ * statically allocated but all its fields are private and should not be
+ * accessed directly.
+ */
+struct _MIOPos {
+  /*< private >*/
   guint type;
 #ifdef MIO_DEBUG
   void *tag;
@@ -48,7 +70,14 @@ struct MIOPos {
   } impl;
 };
 
-struct MIO {
+/**
+ * MIO:
+ * 
+ * An object representing a #MIO stream. No assumptions should be made about
+ * what compose this object, and none of its fields should be accessed directly.
+ */
+struct _MIO {
+  /*< private >*/
   guint type;
   union {
     struct {
@@ -92,7 +121,7 @@ gchar      *mio_gets        (MIO   *mio,
                              gchar *s,
                              gsize  size);
 gint        mio_ungetc      (MIO *mio,
-                             gint c);
+                             gint ch);
 gint        mio_putc        (MIO *mio,
                              gint c);
 gint        mio_puts        (MIO         *mio,
