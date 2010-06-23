@@ -30,6 +30,9 @@ LT_PREREQ([2.2.0])
 LT_INIT
 AC_PROG_CC
 
+# check for gtk-doc
+GTK_DOC_CHECK([1.9])
+
 # Checks for libraries.
 PKG_CHECK_MODULES([GLIB], [glib-2.0])
 
@@ -45,5 +48,9 @@ AC_TYPE_SIZE_T
 AC_CONFIG_FILES([Makefile
                  mio/Makefile
                  tests/Makefile
+                 docs/Makefile
+                 docs/reference/Makefile
+                 docs/reference/mio/Makefile
+                 docs/reference/mio/version.xml
                  mio.pc])
 AC_OUTPUT
