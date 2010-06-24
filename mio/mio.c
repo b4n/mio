@@ -186,6 +186,60 @@ mio_free (MIO *mio)
 }
 
 /**
+ * mio_file_get_fp:
+ * @mio: A #MIO object
+ * 
+ * Gets the underlying #FILE object associated with a #MIO file stream.
+ * 
+ * <warning><para>The returned object may become invalid after a call to
+ * mio_free() if the stream was configured to close the file when
+ * destroyed.</para></warning>
+ * 
+ * Returns: The underlying #FILE object of the given stream, or %NULL if the
+ *          stream is not a file stream.
+ */
+FILE *
+mio_file_get_fp (MIO *mio)
+{
+  FILE *fp = NULL;
+  
+  if (mio->type == MIO_TYPE_FILE) {
+    fp = mio->impl.file.fp;
+  }
+  
+  return fp;
+}
+
+/**
+ * mio_memory_get_data:
+ * @mio: A #MIO object
+ * @size: (allow-none) (out): Return location for the length of the returned
+ *        memory, or %NULL
+ * 
+ * Gets the underlying memory buffer associated with a #MIO memory stream.
+ * 
+ * <warning><para>The returned pointer and size may become invalid after a
+ * successful write on the stream or after a call to mio_free() if the stream
+ * was configured to free the memory when destroyed.</para></warning>
+ * 
+ * Returns: The memory buffer of the given #MIO stream, or %NULL if the stream
+ *          is not a memory stream.
+ */
+guchar *
+mio_memory_get_data (MIO   *mio,
+                     gsize *size)
+{
+  guchar *ptr = NULL;
+  
+  if (mio->type == MIO_TYPE_MEMORY) {
+    ptr = mio->impl.mem.buf;
+    if (size) *size = mio->impl.mem.size;
+  }
+  
+  return ptr;
+}
+
+/**
  * mio_read:
  * @mio: A #MIO object
  * @ptr: Pointer to the memory to fill with the read data

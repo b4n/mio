@@ -8,6 +8,8 @@ mio_new_file
 mio_new_fp
 mio_new_memory
 mio_free
+mio_file_get_fp
+mio_memory_get_data
 mio_read
 mio_write
 mio_getc

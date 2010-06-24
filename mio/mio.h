@@ -108,6 +108,9 @@ MIO        *mio_new_memory  (guchar        *data,
                              MIOReallocFunc realloc_func,
                              GDestroyNotify free_func);
 void        mio_free        (MIO *mio);
+FILE       *mio_file_get_fp (MIO *mio);
+guchar     *mio_memory_get_data (MIO   *mio,
+                                 gsize *size);
 gsize       mio_read        (MIO     *mio,
                              void    *ptr,
                              gsize    size,
