@@ -45,11 +45,20 @@ typedef struct _MIOPos  MIOPos;
  * @ptr: Pointer to the memory to resize
  * @size: New size of the memory pointed by @ptr
  * 
- * Type of a function following the realloc() semantic.
+ * A function following the realloc() semantic.
  */
 /* should be GReallocFunc but it's only defined by GIO */
 typedef gpointer (* MIOReallocFunc) (gpointer ptr,
                                      gsize    size);
+
+/**
+ * MIOFCloseFunc:
+ * @fp: An opened #FILE object
+ * 
+ * A function following the fclose() semantic, used to close a #FILE
+ * object.
+ */
+typedef gint     (* MIOFCloseFunc)  (FILE *fp);
 
 /**
  * MIOPos:
@@ -81,8 +90,8 @@ struct _MIO {
   guint type;
   union {
     struct {
-      FILE       *fp;
-      gboolean    close;
+      FILE           *fp;
+      MIOFCloseFunc   close_func;
     } file;
     struct {
       guchar         *buf;
@@ -101,8 +110,8 @@ struct _MIO {
 
 MIO        *mio_new_file    (const gchar *path,
                              const gchar *mode);
-MIO        *mio_new_fp      (FILE        *fp,
-                             gboolean     do_close);
+MIO        *mio_new_fp      (FILE          *fp,
+                             MIOFCloseFunc  close_func);
 MIO        *mio_new_memory  (guchar        *data,
                              gsize          size,
                              MIOReallocFunc realloc_func,

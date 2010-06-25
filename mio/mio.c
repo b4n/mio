@@ -57,7 +57,7 @@ mio_new_file (const gchar *path,
     } else {
       mio->type = MIO_TYPE_FILE;
       mio->impl.file.fp = fp;
-      mio->impl.file.close = TRUE;
+      mio->impl.file.close_func = fclose;
     }
   }
   
@@ -66,20 +66,27 @@ mio_new_file (const gchar *path,
 
 /**
  * mio_new_fp:
- * @fp: A libc FILE object
- * @do_close: Whether the file object @fp should be closed with fclose() when
- *            the created #MIO is destroyed
+ * @fp: An opened #FILE object
+ * @close_func: (allow-none): Function used to close @fp when the #MIO object
+ *              gets destroyed, or %NULL not to close the #FILE object
  * 
- * Creates a new #MIO object working on a file, from an already opened FILE
+ * Creates a new #MIO object working on a file, from an already opened #FILE
  * object.
+ * 
+ * <example>
+ * <title>Typical use of this function</title>
+ * <programlisting>
+ * MIO *mio = mio_new_fp (fp, fclose);
+ * </programlisting>
+ * </example>
  * 
  * Free-function: mio_free()
  * 
  * Returns: A new #MIO on success or %NULL on failure.
  */
 MIO *
-mio_new_fp (FILE     *fp,
-            gboolean  do_close)
+mio_new_fp (FILE         *fp,
+            MIOFCloseFunc close_func)
 {
   MIO *mio;
   
@@ -87,7 +94,7 @@ mio_new_fp (FILE     *fp,
   if (mio) {
     mio->type = MIO_TYPE_FILE;
     mio->impl.file.fp = fp;
-    mio->impl.file.close = do_close;
+    mio->impl.file.close_func = close_func;
   }
   
   return mio;
@@ -180,10 +187,10 @@ mio_free (MIO *mio)
         break;
       
       case MIO_TYPE_FILE:
-        if (mio->impl.file.close) {
-          fclose (mio->impl.file.fp);
+        if (mio->impl.file.close_func) {
+          mio->impl.file.close_func (mio->impl.file.fp);
         }
-        mio->impl.file.close = FALSE;
+        mio->impl.file.close_func = NULL;
         mio->impl.file.fp = NULL;
         break;
     }
