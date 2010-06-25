@@ -825,17 +825,17 @@ mio_seek (MIO  *mio,
           if (offset < 0 || (gsize)offset > mio->impl.mem.size) {
             errno = EINVAL;
           } else {
-            mio->impl.mem.pos = offset;
+            mio->impl.mem.pos = (gsize)offset;
             rv = 0;
           }
           break;
         
         case SEEK_CUR:
           if ((offset < 0 && (gsize)-offset > mio->impl.mem.pos) ||
-              mio->impl.mem.pos + offset > mio->impl.mem.size) {
+              mio->impl.mem.pos + (gsize)offset > mio->impl.mem.size) {
             errno = EINVAL;
           } else {
-            mio->impl.mem.pos += offset;
+            mio->impl.mem.pos = (gsize)((gssize)mio->impl.mem.pos + offset);
             rv = 0;
           }
           break;
@@ -883,7 +883,13 @@ mio_tell (MIO *mio)
   
   switch (mio->type) {
     case MIO_TYPE_MEMORY:
-      rv = mio->impl.mem.pos;
+      if (mio->impl.mem.pos > G_MAXLONG) {
+        #ifdef EOVERFLOW
+        errno = EOVERFLOW;
+        #endif
+      } else {
+        rv = (glong)mio->impl.mem.pos;
+      }
       break;
     
     case MIO_TYPE_FILE:
