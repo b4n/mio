@@ -38,6 +38,8 @@
  * 
  * Creates a new #MIO object working on a file from a path; wrapping fopen().
  * 
+ * Free-function: mio_free()
+ * 
  * Returns: A new #MIO on success or %NULL on failure.
  */
 MIO *
@@ -70,6 +72,8 @@ mio_new_file (const gchar *path,
  * 
  * Creates a new #MIO object working on a file, from an already opened FILE
  * object.
+ * 
+ * Free-function: mio_free()
  * 
  * Returns: A new #MIO on success or %NULL on failure.
  */
@@ -120,6 +124,8 @@ mio_new_fp (FILE     *fp,
  * MIO *mio = mio_new_memory (NULL, 0, g_try_realloc, g_free);
  * </programlisting>
  * </example>
+ * 
+ * Free-function: mio_free()
  * 
  * Returns: A new #MIO on success, or %NULL on failure.
  */
@@ -916,7 +922,7 @@ mio_rewind (MIO *mio)
 /**
  * mio_getpos:
  * @mio: A #MIO stream
- * @pos: A #MIOPos object to fill-in
+ * @pos: (out): A #MIOPos object to fill-in
  * 
  * Stores the current position (and maybe other informations about the stream
  * state) of a #MIO stream in order to restore it later with mio_setpos(). This
@@ -961,8 +967,8 @@ mio_getpos (MIO    *mio,
 /**
  * mio_setpos:
  * @mio: A #MIO object
- * @pos: A #MIOPos object filled-in by a previous call of mio_getpos() on the
- *       same stream
+ * @pos: (in): A #MIOPos object filled-in by a previous call of mio_getpos() on
+ *       the same stream
  * 
  * Restores the position and state indicators of a #MIO stream previously saved
  * by mio_getpos().
