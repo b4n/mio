@@ -32,36 +32,77 @@
 
 
 /**
- * mio_new_file:
- * @path: Filename to open, same as the fopen()'s first argument
- * @mode: Mode in which open the file, fopen()'s second argument
+ * mio_new_file_full:
+ * @filename: Filename to open, passed as-is to @open_func as the first argument
+ * @mode: Mode in which open the file, passed as-is to @open_func as the second
+ *        argument
+ * @open_func: A function with the fopen() semantic to use to open the file
+ * @close_func: A function with the fclose() semantic to close the file when
+ *              the #MIO object is destroyed, or %NULL not to close the #FILE
+ *              object
  * 
- * Creates a new #MIO object working on a file from a path; wrapping fopen().
+ * Creates a new #MIO object working on a file, from a filename and an opening
+ * function. See also mio_new_file().
+ * 
+ * This function is generally overkill and mio_new_file() should often be used
+ * instead, but it allows to specify a custom function to open a file, as well
+ * as a close function. The former is useful e.g. if you need to wrap fopen()
+ * for some reason (like filename encoding conversion for example), and the
+ * latter allows you both to match your custom open function and to choose
+ * whether the underlying #FILE object should or not be closed when mio_free()
+ * is called on the returned object.
  * 
  * Free-function: mio_free()
  * 
- * Returns: A new #MIO on success or %NULL on failure.
+ * Returns: A new #MIO on success, or %NULL on failure.
  */
 MIO *
-mio_new_file (const gchar *path,
-              const gchar *mode)
+mio_new_file_full (const gchar  *filename,
+                   const gchar  *mode,
+                   MIOFOpenFunc  open_func,
+                   MIOFCloseFunc close_func)
 {
-  FILE *fp;
-  MIO  *mio = NULL;
+  MIO *mio;
   
-  fp = fopen (path, mode);
-  if (fp) {
-    mio = g_slice_alloc (sizeof *mio);
-    if (! mio) {
-      fclose (fp);
+  /* we need to create the MIO object first, because we may not be able to close
+   * the opened file if the user passed NULL as the close function, which means
+   * that everything must succeed if we've opened the file successfully */
+  mio = g_slice_alloc (sizeof *mio);
+  if (mio) {
+    FILE *fp = open_func (filename, mode);
+    
+    if (! fp) {
+      g_slice_free1 (sizeof *mio, mio);
+      mio = NULL;
     } else {
       mio->type = MIO_TYPE_FILE;
       mio->impl.file.fp = fp;
-      mio->impl.file.close_func = fclose;
+      mio->impl.file.close_func = close_func;
     }
   }
   
   return mio;
+}
+
+/**
+ * mio_new_file:
+ * @filename: Filename to open, same as the fopen()'s first argument
+ * @mode: Mode in which open the file, fopen()'s second argument
+ * 
+ * Creates a new #MIO object working on a file from a filename; wrapping
+ * fopen().
+ * This function simply calls mio_new_file_full() with the libc's fopen() and
+ * fclose() functions.
+ * 
+ * Free-function: mio_free()
+ * 
+ * Returns: A new #MIO on success, or %NULL on failure.
+ */
+MIO *
+mio_new_file (const gchar *filename,
+              const gchar *mode)
+{
+  return mio_new_file_full (filename, mode, fopen, fclose);
 }
 
 /**

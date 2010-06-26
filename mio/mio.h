@@ -46,10 +46,25 @@ typedef struct _MIOPos  MIOPos;
  * @size: New size of the memory pointed by @ptr
  * 
  * A function following the realloc() semantic.
+ * 
+ * Returns: A pointer to the start of the new memory, or %NULL on failure.
  */
 /* should be GReallocFunc but it's only defined by GIO */
 typedef gpointer (* MIOReallocFunc) (gpointer ptr,
                                      gsize    size);
+
+/**
+ * MIOFOpenFunc:
+ * @filename: The filename to open
+ * @mode: fopen() modes for opening @filename
+ * 
+ * A function following the fclose() semantic, used to close a #FILE
+ * object.
+ * 
+ * Returns: A new #FILE object, or %NULL on failure
+ */
+typedef FILE    *(* MIOFOpenFunc)   (const gchar *filename,
+                                     const gchar *mode);
 
 /**
  * MIOFCloseFunc:
@@ -57,6 +72,8 @@ typedef gpointer (* MIOReallocFunc) (gpointer ptr,
  * 
  * A function following the fclose() semantic, used to close a #FILE
  * object.
+ * 
+ * Returns: 0 on success, EOF otherwise.
  */
 typedef gint     (* MIOFCloseFunc)  (FILE *fp);
 
@@ -108,56 +125,60 @@ struct _MIO {
 };
 
 
-MIO        *mio_new_file    (const gchar *path,
-                             const gchar *mode);
-MIO        *mio_new_fp      (FILE          *fp,
-                             MIOFCloseFunc  close_func);
-MIO        *mio_new_memory  (guchar        *data,
-                             gsize          size,
-                             MIOReallocFunc realloc_func,
-                             GDestroyNotify free_func);
-void        mio_free        (MIO *mio);
-FILE       *mio_file_get_fp (MIO *mio);
-guchar     *mio_memory_get_data (MIO   *mio,
-                                 gsize *size);
-gsize       mio_read        (MIO     *mio,
-                             void    *ptr,
-                             gsize    size,
-                             gsize    nmemb);
-gsize       mio_write       (MIO         *mio,
-                             const void  *ptr,
-                             gsize        size,
-                             gsize        nmemb);
-gint        mio_getc        (MIO *mio);
-gchar      *mio_gets        (MIO   *mio,
-                             gchar *s,
-                             gsize  size);
-gint        mio_ungetc      (MIO *mio,
-                             gint ch);
-gint        mio_putc        (MIO *mio,
-                             gint c);
-gint        mio_puts        (MIO         *mio,
-                             const gchar *s);
+MIO        *mio_new_file            (const gchar *filename,
+                                     const gchar *mode);
+MIO        *mio_new_file_full       (const gchar   *filename,
+                                     const gchar   *mode,
+                                     MIOFOpenFunc   open_func,
+                                     MIOFCloseFunc  close_func);
+MIO        *mio_new_fp              (FILE          *fp,
+                                     MIOFCloseFunc  close_func);
+MIO        *mio_new_memory          (guchar        *data,
+                                     gsize          size,
+                                     MIOReallocFunc realloc_func,
+                                     GDestroyNotify free_func);
+void        mio_free                (MIO *mio);
+FILE       *mio_file_get_fp         (MIO *mio);
+guchar     *mio_memory_get_data     (MIO   *mio,
+                                     gsize *size);
+gsize       mio_read                (MIO     *mio,
+                                     void    *ptr,
+                                     gsize    size,
+                                     gsize    nmemb);
+gsize       mio_write               (MIO         *mio,
+                                     const void  *ptr,
+                                     gsize        size,
+                                     gsize        nmemb);
+gint        mio_getc                (MIO *mio);
+gchar      *mio_gets                (MIO   *mio,
+                                     gchar *s,
+                                     gsize  size);
+gint        mio_ungetc              (MIO *mio,
+                                     gint ch);
+gint        mio_putc                (MIO *mio,
+                                     gint c);
+gint        mio_puts                (MIO         *mio,
+                                     const gchar *s);
 
-gint        mio_vprintf     (MIO         *mio,
-                             const gchar *format,
-                             va_list      ap);
-gint        mio_printf      (MIO         *mio,
-                             const gchar *format,
-                             ...) G_GNUC_PRINTF (2, 3);
+gint        mio_vprintf             (MIO         *mio,
+                                     const gchar *format,
+                                     va_list      ap);
+gint        mio_printf              (MIO         *mio,
+                                     const gchar *format,
+                                     ...) G_GNUC_PRINTF (2, 3);
 
-void        mio_clearerr    (MIO *mio);
-gint        mio_eof         (MIO *mio);
-gint        mio_error       (MIO *mio);
-gint        mio_seek        (MIO   *mio,
-                             glong  offset,
-                             gint   whence);
-glong       mio_tell        (MIO *mio);
-void        mio_rewind      (MIO *mio);
-gint        mio_getpos      (MIO     *mio,
-                             MIOPos  *pos);
-gint        mio_setpos      (MIO     *mio,
-                             MIOPos  *pos);
+void        mio_clearerr            (MIO *mio);
+gint        mio_eof                 (MIO *mio);
+gint        mio_error               (MIO *mio);
+gint        mio_seek                (MIO   *mio,
+                                     glong  offset,
+                                     gint   whence);
+glong       mio_tell                (MIO *mio);
+void        mio_rewind              (MIO *mio);
+gint        mio_getpos              (MIO     *mio,
+                                     MIOPos  *pos);
+gint        mio_setpos              (MIO     *mio,
+                                     MIOPos  *pos);
 
 
 
