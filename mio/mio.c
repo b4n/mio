@@ -18,16 +18,14 @@
  */
 
 #include "mio.h"
+#include "mio-file.c"
+#include "mio-memory.c"
 
 #include <glib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-
-
-/* minimal reallocation chunk size */
-#define MIO_CHUNK_SIZE 4096
 
 
 
@@ -78,6 +76,8 @@ mio_new_file_full (const gchar  *filename,
       mio->type = MIO_TYPE_FILE;
       mio->impl.file.fp = fp;
       mio->impl.file.close_func = close_func;
+      /* function table filling */
+      FILE_SET_VTABLE (mio);
     }
   }
   
@@ -136,6 +136,8 @@ mio_new_fp (FILE         *fp,
     mio->type = MIO_TYPE_FILE;
     mio->impl.file.fp = fp;
     mio->impl.file.close_func = close_func;
+    /* function table filling */
+    FILE_SET_VTABLE (mio);
   }
   
   return mio;
@@ -197,46 +199,11 @@ mio_new_memory (guchar         *data,
     mio->impl.mem.free_func = free_func;
     mio->impl.mem.eof = FALSE;
     mio->impl.mem.error = FALSE;
+    /* function table filling */
+    MEM_SET_VTABLE (mio);
   }
   
   return mio;
-}
-
-/**
- * mio_free:
- * @mio: A #MIO object
- * 
- * Destroys a #MIO object.
- */
-void
-mio_free (MIO *mio)
-{
-  if (mio) {
-    switch (mio->type) {
-      case MIO_TYPE_MEMORY:
-        if (mio->impl.mem.free_func) {
-          mio->impl.mem.free_func (mio->impl.mem.buf);
-        }
-        mio->impl.mem.buf = NULL;
-        mio->impl.mem.pos = 0;
-        mio->impl.mem.size = 0;
-        mio->impl.mem.allocated_size = 0;
-        mio->impl.mem.realloc_func = NULL;
-        mio->impl.mem.free_func = NULL;
-        mio->impl.mem.eof = FALSE;
-        mio->impl.mem.error = FALSE;
-        break;
-      
-      case MIO_TYPE_FILE:
-        if (mio->impl.file.close_func) {
-          mio->impl.file.close_func (mio->impl.file.fp);
-        }
-        mio->impl.file.close_func = NULL;
-        mio->impl.file.fp = NULL;
-        break;
-    }
-    g_slice_free1 (sizeof *mio, mio);
-  }
 }
 
 /**
@@ -294,6 +261,21 @@ mio_memory_get_data (MIO   *mio,
 }
 
 /**
+ * mio_free:
+ * @mio: A #MIO object
+ * 
+ * Destroys a #MIO object.
+ */
+void
+mio_free (MIO *mio)
+{
+  if (mio) {
+    mio->v_free (mio);
+    g_slice_free1 (sizeof *mio, mio);
+  }
+}
+
+/**
  * mio_read:
  * @mio: A #MIO object
  * @ptr: Pointer to the memory to fill with the read data
@@ -314,125 +296,7 @@ mio_read (MIO    *mio,
           gsize   size,
           gsize   nmemb)
 {
-  gsize n_read = 0;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      if (size != 0 && nmemb != 0) {
-        if (mio->impl.mem.ungetch != EOF) {
-          *((guchar *)ptr) = (guchar)mio->impl.mem.ungetch;
-          mio->impl.mem.ungetch = EOF;
-          mio->impl.mem.pos++;
-          if (size == 1) {
-            n_read++;
-          } else if (mio->impl.mem.pos + (size - 1) <= mio->impl.mem.size) {
-            memcpy (&(((guchar *)ptr)[1]),
-                    &mio->impl.mem.buf[mio->impl.mem.pos], size - 1);
-            mio->impl.mem.pos += size - 1;
-            n_read++;
-          }
-        }
-        for (; n_read < nmemb; n_read++) {
-          if (mio->impl.mem.pos + size > mio->impl.mem.size) {
-            break;
-          } else {
-            memcpy (&(((guchar *)ptr)[n_read * size]),
-                    &mio->impl.mem.buf[mio->impl.mem.pos], size);
-            mio->impl.mem.pos += size;
-          }
-        }
-        if (mio->impl.mem.pos >= mio->impl.mem.size) {
-          mio->impl.mem.eof = TRUE;
-        }
-      }
-      break;
-    
-    case MIO_TYPE_FILE:
-      n_read = fread (ptr, size, nmemb, mio->impl.file.fp);
-      break;
-  }
-  
-  return n_read;
-}
-
-/*
- * try_resize:
- * @mio: A #MIO object of the type %MIO_TYPE_MEMORY
- * @new_size: Requested new size
- * 
- * Tries to resize the underlying buffer of an in-memory #MIO object.
- * This supports both growing and shrinking.
- * 
- * Returns: %TRUE on success, %FALSE otherwise.
- */
-static gboolean
-try_resize (MIO  *mio,
-            gsize new_size)
-{
-  gboolean success = FALSE;
-  
-  if (mio->impl.mem.realloc_func) {
-    if (G_UNLIKELY (new_size == G_MAXSIZE)) {
-      #ifdef EOVERFLOW
-      errno = EOVERFLOW;
-      #endif
-    } else {
-      if (new_size > mio->impl.mem.size) {
-        if (new_size <= mio->impl.mem.allocated_size) {
-          mio->impl.mem.size = new_size;
-          success = TRUE;
-        } else {
-          gsize   newsize;
-          guchar *newbuf;
-          
-          newsize = MAX (mio->impl.mem.allocated_size + MIO_CHUNK_SIZE,
-                         new_size);
-          newbuf = mio->impl.mem.realloc_func (mio->impl.mem.buf, newsize);
-          if (newbuf) {
-            mio->impl.mem.buf = newbuf;
-            mio->impl.mem.allocated_size = newsize;
-            mio->impl.mem.size = new_size;
-            success = TRUE;
-          }
-        }
-      } else {
-        guchar *newbuf;
-        
-        newbuf = mio->impl.mem.realloc_func (mio->impl.mem.buf, new_size);
-        if (G_LIKELY (newbuf || new_size == 0)) {
-          mio->impl.mem.buf = newbuf;
-          mio->impl.mem.allocated_size = new_size;
-          mio->impl.mem.size = new_size;
-          success = TRUE;
-        }
-      }
-    }
-  }
-  
-  return success;
-}
-
-/*
- * try_ensure_space:
- * @mio: A #MIO object
- * @n: Requested size from the current (cursor) position
- * 
- * Tries to ensure there is enough space for @n bytes to be written from the
- * current cursor position.
- * 
- * Returns: %TRUE if there is enough space, %FALSE otherwise.
- */
-static gboolean
-try_ensure_space (MIO  *mio,
-                  gsize n)
-{
-  gboolean success = TRUE;
-  
-  if (mio->impl.mem.pos + n > mio->impl.mem.size) {
-    success = try_resize (mio, mio->impl.mem.pos + n);
-  }
-  
-  return success;
+  return mio->v_read (mio, ptr, size, nmemb);
 }
 
 /**
@@ -453,25 +317,7 @@ mio_write (MIO         *mio,
            gsize        size,
            gsize        nmemb)
 {
-  gsize n_written = 0;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      if (size != 0 && nmemb != 0) {
-        if (try_ensure_space (mio, size * nmemb)) {
-          memcpy (&mio->impl.mem.buf[mio->impl.mem.pos], ptr, size * nmemb);
-          mio->impl.mem.pos += size * nmemb;
-          n_written = nmemb;
-        }
-      }
-      break;
-    
-    case MIO_TYPE_FILE:
-      n_written = fwrite (ptr, size, nmemb, mio->impl.file.fp);
-      break;
-  }
-  
-  return n_written;
+  return mio->v_write (mio, ptr, size, nmemb);
 }
 
 /**
@@ -488,23 +334,7 @@ gint
 mio_putc (MIO  *mio,
           gint  c)
 {
-  gint rv = EOF;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      if (try_ensure_space (mio, 1)) {
-        mio->impl.mem.buf[mio->impl.mem.pos] = (guchar)c;
-        mio->impl.mem.pos++;
-        rv = (gint)((guchar)c);
-      }
-      break;
-    
-    case MIO_TYPE_FILE:
-      rv = fputc (c, mio->impl.file.fp);
-      break;
-  }
-  
-  return rv;
+  return mio->v_putc (mio, c);
 }
 
 /**
@@ -520,27 +350,7 @@ gint
 mio_puts (MIO          *mio,
           const gchar  *s)
 {
-  gint rv = EOF;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY: {
-      gsize len;
-      
-      len = strlen (s);
-      if (try_ensure_space (mio, len)) {
-        memcpy (&mio->impl.mem.buf[mio->impl.mem.pos], s, len);
-        mio->impl.mem.pos += len;
-        rv = 1;
-      }
-      break;
-    }
-    
-    case MIO_TYPE_FILE:
-      rv = fputs (s, mio->impl.file.fp);
-      break;
-  }
-  
-  return rv;
+  return mio->v_puts (mio, s);
 }
 
 /**
@@ -560,50 +370,7 @@ mio_vprintf (MIO         *mio,
              const gchar *format,
              va_list      ap)
 {
-  gint    rv = -1;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY: {
-      gint    n;
-      gchar   tmp;
-      gsize   old_pos;
-      gsize   old_size;
-      va_list ap_copy;
-      
-      old_pos = mio->impl.mem.pos;
-      old_size = mio->impl.mem.size;
-      va_copy (ap_copy, ap);
-      /* compute the size we will need into the buffer */
-      n = vsnprintf (&tmp, 1, format, ap_copy);
-      va_end (ap_copy);
-      if (n >= 0 && try_ensure_space (mio, ((guint)n) + 1)) {
-        guchar c;
-        
-        /* backup character at n+1 that will be overwritten by a \0 ... */
-        c = mio->impl.mem.buf[mio->impl.mem.pos + (guint)n];
-        rv = vsnprintf ((gchar *)&mio->impl.mem.buf[mio->impl.mem.pos],
-                        (guint)n + 1, format, ap);
-        /* ...and restore it */
-        mio->impl.mem.buf[mio->impl.mem.pos + (guint)n] = c;
-        if (G_LIKELY (rv >= 0 && rv == n)) {
-          /* re-compute the actual size since we might have allocated one byte
-           * more than needed */
-          mio->impl.mem.size = MAX (old_size, old_pos + (guint)rv);
-          mio->impl.mem.pos += (guint)rv;
-        } else {
-          mio->impl.mem.size = old_size;
-          rv = -1;
-        }
-      }
-      break;
-    }
-    
-    case MIO_TYPE_FILE:
-      rv = vfprintf (mio->impl.file.fp, format, ap);
-      break;
-  }
-  
-  return rv;
+  return mio->v_vprintf (mio, format, ap);
 }
 
 /**
@@ -627,7 +394,7 @@ mio_printf (MIO         *mio,
   va_list ap;
   
   va_start (ap, format);
-  rv = mio_vprintf (mio, format, ap);
+  rv = mio->v_vprintf (mio, format, ap);
   va_end (ap);
   
   return rv;
@@ -645,28 +412,7 @@ mio_printf (MIO         *mio,
 gint
 mio_getc (MIO *mio)
 {
-  gint rv = EOF;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      if (mio->impl.mem.ungetch != EOF) {
-        rv = mio->impl.mem.ungetch;
-        mio->impl.mem.ungetch = EOF;
-        mio->impl.mem.pos++;
-      } else if (mio->impl.mem.pos < mio->impl.mem.size) {
-        rv = mio->impl.mem.buf[mio->impl.mem.pos];
-        mio->impl.mem.pos++;
-      } else {
-        mio->impl.mem.eof = TRUE;
-      }
-      break;
-    
-    case MIO_TYPE_FILE:
-      rv = fgetc (mio->impl.file.fp);
-      break;
-  }
-  
-  return rv;
+  return mio->v_getc (mio);
 }
 
 /**
@@ -689,23 +435,7 @@ gint
 mio_ungetc (MIO  *mio,
             gint  ch)
 {
-  gint rv = EOF;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      if (ch != EOF && mio->impl.mem.ungetch == EOF) {
-        rv = mio->impl.mem.ungetch = ch;
-        mio->impl.mem.pos--;
-        mio->impl.mem.eof = FALSE;
-      }
-      break;
-    
-    case MIO_TYPE_FILE:
-      rv = ungetc (ch, mio->impl.file.fp);
-      break;
-  }
-  
-  return rv;
+  return mio->v_ungetc (mio, ch);
 }
 
 /**
@@ -725,47 +455,7 @@ mio_gets (MIO    *mio,
           gchar  *s,
           gsize   size)
 {
-  gchar *rv = NULL;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      if (size > 0) {
-        gsize i = 0;
-        
-        if (mio->impl.mem.ungetch != EOF) {
-          s[i] = (gchar)mio->impl.mem.ungetch;
-          mio->impl.mem.ungetch = EOF;
-          mio->impl.mem.pos++;
-          i++;
-        }
-        for (; mio->impl.mem.pos < mio->impl.mem.size && i < (size - 1); i++) {
-          s[i] = (gchar)mio->impl.mem.buf[mio->impl.mem.pos];
-          mio->impl.mem.pos++;
-          if (s[i] == '\n') {
-            i++;
-            break;
-          }
-        }
-        if (i > 0) {
-          s[i] = 0;
-          rv = s;
-        }
-        if (mio->impl.mem.pos >= mio->impl.mem.size) {
-          mio->impl.mem.eof = TRUE;
-        }
-      }
-      break;
-    
-    case MIO_TYPE_FILE:
-      if (size > G_MAXINT) {
-        /* FIXME: report the error */
-      } else {
-        rv = fgets (s, (int)size, mio->impl.file.fp);
-      }
-      break;
-  }
-  
-  return rv;
+  return mio->v_gets (mio, s, size);
 }
 
 /**
@@ -778,16 +468,7 @@ mio_gets (MIO    *mio,
 void
 mio_clearerr (MIO *mio)
 {
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      mio->impl.mem.error = FALSE;
-      mio->impl.mem.eof = FALSE;
-      break;
-    
-    case MIO_TYPE_FILE:
-      clearerr (mio->impl.file.fp);
-      break;
-  }
+  mio->v_clearerr (mio);
 }
 
 /**
@@ -802,19 +483,7 @@ mio_clearerr (MIO *mio)
 gint
 mio_eof (MIO *mio)
 {
-  gint rv = 1;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      rv = mio->impl.mem.eof != FALSE;
-      break;
-    
-    case MIO_TYPE_FILE:
-      rv = feof (mio->impl.file.fp);
-      break;
-  }
-  
-  return rv;
+  return mio->v_eof (mio);
 }
 
 /**
@@ -829,19 +498,7 @@ mio_eof (MIO *mio)
 gint
 mio_error (MIO *mio)
 {
-  gint rv = 1;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      rv = mio->impl.mem.error != FALSE;
-      break;
-    
-    case MIO_TYPE_FILE:
-      rv = ferror (mio->impl.file.fp);
-      break;
-  }
-  
-  return rv;
+  return mio->v_error (mio);
 }
 
 /**
@@ -858,60 +515,12 @@ mio_error (MIO *mio)
  * Returns: 0 on success, -1 otherwise, in which case errno should be set to
  *          indicate the error.
  */
-/* FIXME: should we support seeking out of bounds like lseek() seems to do? */
 gint
 mio_seek (MIO  *mio,
           glong offset,
           gint  whence)
 {
-  gint rv = -1;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      switch (whence) {
-        case SEEK_SET:
-          if (offset < 0 || (gsize)offset > mio->impl.mem.size) {
-            errno = EINVAL;
-          } else {
-            mio->impl.mem.pos = (gsize)offset;
-            rv = 0;
-          }
-          break;
-        
-        case SEEK_CUR:
-          if ((offset < 0 && (gsize)-offset > mio->impl.mem.pos) ||
-              mio->impl.mem.pos + (gsize)offset > mio->impl.mem.size) {
-            errno = EINVAL;
-          } else {
-            mio->impl.mem.pos = (gsize)((gssize)mio->impl.mem.pos + offset);
-            rv = 0;
-          }
-          break;
-        
-        case SEEK_END:
-          if (offset > 0 || (gsize)-offset > mio->impl.mem.size) {
-            errno = EINVAL;
-          } else {
-            mio->impl.mem.pos = mio->impl.mem.size - (gsize)-offset;
-            rv = 0;
-          }
-          break;
-        
-        default:
-          errno = EINVAL;
-      }
-      if (rv == 0) {
-        mio->impl.mem.eof = FALSE;
-        mio->impl.mem.ungetch = EOF;
-      }
-      break;
-    
-    case MIO_TYPE_FILE:
-      rv = fseek (mio->impl.file.fp, offset, whence);
-      break;
-  }
-  
-  return rv;
+  return mio->v_seek (mio, offset, whence);
 }
 
 /**
@@ -927,25 +536,7 @@ mio_seek (MIO  *mio,
 glong
 mio_tell (MIO *mio)
 {
-  glong rv = -1;
-  
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      if (mio->impl.mem.pos > G_MAXLONG) {
-        #ifdef EOVERFLOW
-        errno = EOVERFLOW;
-        #endif
-      } else {
-        rv = (glong)mio->impl.mem.pos;
-      }
-      break;
-    
-    case MIO_TYPE_FILE:
-      rv = ftell (mio->impl.file.fp);
-      break;
-  }
-  
-  return rv;
+  return mio->v_tell (mio);
 }
 
 /**
@@ -959,18 +550,7 @@ mio_tell (MIO *mio)
 void
 mio_rewind (MIO *mio)
 {
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      mio->impl.mem.pos = 0;
-      mio->impl.mem.ungetch = EOF;
-      mio->impl.mem.eof = FALSE;
-      mio->impl.mem.error = FALSE;
-      break;
-    
-    case MIO_TYPE_FILE:
-      rewind (mio->impl.file.fp);
-      break;
-  }
+  mio->v_rewind (mio);
 }
 
 /**
@@ -992,23 +572,7 @@ mio_getpos (MIO    *mio,
   gint rv = -1;
   
   pos->type = mio->type;
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      if (mio->impl.mem.pos == (gsize)-1) {
-        /* this happens if ungetc() was called at the start of the stream */
-        #ifdef EIO
-        errno = EIO;
-        #endif
-      } else {
-        pos->impl.mem = mio->impl.mem.pos;
-        rv = 0;
-      }
-      break;
-    
-    case MIO_TYPE_FILE:
-      rv = fgetpos (mio->impl.file.fp, &pos->impl.file);
-      break;
-  }
+  rv = mio->v_getpos (mio, pos);
   #ifdef MIO_DEBUG
   if (rv != -1) {
     pos->tag = mio;
@@ -1050,21 +614,7 @@ mio_setpos (MIO    *mio,
     return -1;
   }
   #endif /* MIO_DEBUG */
-  switch (mio->type) {
-    case MIO_TYPE_MEMORY:
-      if (pos->impl.mem > mio->impl.mem.size) {
-        errno = EINVAL;
-      } else {
-        mio->impl.mem.ungetch = EOF;
-        mio->impl.mem.pos = pos->impl.mem;
-        rv = 0;
-      }
-      break;
-    
-    case MIO_TYPE_FILE:
-      rv = fsetpos (mio->impl.file.fp, &pos->impl.file);
-      break;
-  }
+  rv = mio->v_setpos (mio, pos);
   
   return rv;
 }

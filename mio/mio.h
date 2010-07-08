@@ -122,6 +122,41 @@ struct _MIO {
       gboolean        eof;
     } mem;
   } impl;
+  /* virtual function table */
+  void    (*v_free)     (MIO *mio);
+  gsize   (*v_read)     (MIO     *mio,
+                         void    *ptr,
+                         gsize    size,
+                         gsize    nmemb);
+  gsize   (*v_write)    (MIO         *mio,
+                         const void  *ptr,
+                         gsize        size,
+                         gsize        nmemb);
+  gint    (*v_getc)     (MIO *mio);
+  gchar  *(*v_gets)     (MIO   *mio,
+                         gchar *s,
+                         gsize  size);
+  gint    (*v_ungetc)   (MIO *mio,
+                         gint ch);
+  gint    (*v_putc)     (MIO *mio,
+                         gint c);
+  gint    (*v_puts)     (MIO         *mio,
+                         const gchar *s);
+  gint    (*v_vprintf)  (MIO         *mio,
+                         const gchar *format,
+                         va_list      ap);
+  void    (*v_clearerr) (MIO *mio);
+  gint    (*v_eof)      (MIO *mio);
+  gint    (*v_error)    (MIO *mio);
+  gint    (*v_seek)     (MIO   *mio,
+                         glong  offset,
+                         gint   whence);
+  glong   (*v_tell)     (MIO *mio);
+  void    (*v_rewind)   (MIO *mio);
+  gint    (*v_getpos)   (MIO     *mio,
+                         MIOPos  *pos);
+  gint    (*v_setpos)   (MIO     *mio,
+                         MIOPos  *pos);
 };
 
 
