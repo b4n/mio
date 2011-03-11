@@ -28,6 +28,70 @@
 #define TEST_FILE_W "test.output"
 
 
+static gboolean
+create_input_file (const gchar *filename)
+{
+  FILE     *fpin;
+  gboolean  rv = FALSE;
+  
+  fpin = fopen ("/dev/urandom", "r");
+  if (! fpin) {
+    /* if we can't open /dev/urandom, try to read ourselves */
+    fpin = fopen (__FILE__, "r");
+  }
+  if (! fpin) {
+    g_critical ("Failed to open input file: %s", g_strerror (errno));
+  } else {
+    FILE *fpout;
+    
+    fpout = fopen (filename, "w+");
+    if (! fpout) {
+      g_critical ("Failed to open output file: %s", g_strerror (errno));
+    } else {
+      gchar  *buf;
+      gsize   n_to_read;
+      gint    i;
+      
+      n_to_read = (gsize)g_random_int_range (1, 1024);
+      buf = g_malloc (n_to_read * sizeof *buf);
+      
+      rv = TRUE;
+      for (i = 0; rv && i < g_random_int_range (1, 4); i++) {
+        gsize n_read;
+        
+        n_read = fread (buf, sizeof *buf, n_to_read, fpin);
+        if (fwrite (buf, sizeof *buf, n_read, fpout) != n_read) {
+          g_critical ("Failed to write %lu bytes of data: %s",
+                      n_read, g_strerror (errno));
+          rv = FALSE;
+        }
+        if (n_read < n_to_read) {
+          break;
+        }
+      }
+      g_free (buf);
+      fclose (fpout);
+    }
+    fclose (fpin);
+  }
+  
+  return rv;
+}
+
+static gboolean
+create_output_file (const gchar *filename)
+{
+  FILE *fp;
+  
+  fp = fopen (filename, "w");
+  if (! fp) {
+    return FALSE;
+  }
+  fclose (fp);
+  
+  return TRUE;
+}
+
 static MIO *
 test_mio_mem_new_from_file (const gchar *file,
                             gboolean     rw)
@@ -857,6 +921,9 @@ main (int     argc,
 {
   g_test_init (&argc, &argv, NULL);
   
+  create_input_file (TEST_FILE_R);
+  create_output_file (TEST_FILE_W);
+  
   ADD_TEST_FUNC (read, read);
   ADD_TEST_FUNC (read, getc);
   ADD_TEST_FUNC (read, gets);
@@ -874,6 +941,9 @@ main (int     argc,
   ADD_TEST_FUNC (error, clearerr);
   
   g_test_run ();
+  
+  remove (TEST_FILE_W);
+  remove (TEST_FILE_R);
   
   return 0;
 }
