@@ -31,6 +31,31 @@
 
 
 /**
+ * SECTION:mio
+ * @short_description: The MIO object
+ * @include: mio/mio.h
+ * 
+ * The #MIO object replicates the C file I/O API with support of both standard
+ * file based operations and in-memory operations. Its goal is to ease the port
+ * of an application that uses C file I/O API to perform in-memory operations.
+ * 
+ * A #MIO object is created using mio_new_file() or mio_new_memory(), depending
+ * on whether you want file or in-memory operations, and destroyed using
+ * mio_free(). There is also some other convenient API to create file-based
+ * #MIO objects for more complex cases, such as mio_new_file_full() and
+ * mio_new_fp().
+ * 
+ * Once the #MIO object is created, you can perform standard I/O operations on
+ * it transparently without the need to care about the effective underlying
+ * operations.
+ * 
+ * The I/O API is almost exactly a replication of the standard C file I/O API
+ * with the significant difference that the first parameter is always the #MIO
+ * object to work on.
+ */
+
+
+/**
  * mio_new_file_full:
  * @filename: Filename to open, passed as-is to @open_func as the first argument
  * @mode: Mode in which open the file, passed as-is to @open_func as the second
