@@ -18,6 +18,16 @@
  * 
  */
 
+/* Hack to force ANSI compliance by not using va_copy() even if present.
+ * This relies on the fact G_VA_COPY is maybe defined as va_copy in
+ * glibconfig.h, so we undef it, but gutils.h takes care of defining a
+ * compiler-specific implementation if not already defined.
+ * This needs to come before any other GLib inclusion. */
+#ifdef MIO_FORCE_ANSI
+# include <glibconfig.h>
+# undef G_VA_COPY
+#endif
+
 #include "mio.h"
 #include "mio-file.c"
 #include "mio-memory.c"
