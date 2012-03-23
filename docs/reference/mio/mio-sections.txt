@@ -4,6 +4,7 @@ MIOType
 MIO
 MIOPos
 MIOReallocFunc
+MIOFreeFunc
 MIOFOpenFunc
 MIOFCloseFunc
 mio_new_file

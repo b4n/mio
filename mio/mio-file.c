@@ -20,7 +20,6 @@
 
 /* file IO implementation */
 
-#include <glib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <errno.h>
@@ -29,7 +28,7 @@
 
 
 #define FILE_SET_VTABLE(mio)          \
-  G_STMT_START {                      \
+  do {                                \
     mio->v_free     = file_free;      \
     mio->v_read     = file_read;      \
     mio->v_write    = file_write;     \
@@ -47,7 +46,7 @@
     mio->v_rewind   = file_rewind;    \
     mio->v_getpos   = file_getpos;    \
     mio->v_setpos   = file_setpos;    \
-  } G_STMT_END
+  } while (0)
 
 
 static void
@@ -60,63 +59,63 @@ file_free (MIO *mio)
   mio->impl.file.fp = NULL;
 }
 
-static gsize
+static size_t
 file_read (MIO    *mio,
            void   *ptr,
-           gsize   size,
-           gsize   nmemb)
+           size_t  size,
+           size_t  nmemb)
 {
   return fread (ptr, size, nmemb, mio->impl.file.fp);
 }
 
-static gsize
+static size_t
 file_write (MIO         *mio,
-           const void  *ptr,
-           gsize        size,
-           gsize        nmemb)
+            const void  *ptr,
+            size_t       size,
+            size_t       nmemb)
 {
   return fwrite (ptr, size, nmemb, mio->impl.file.fp);
 }
 
-static gint
+static int
 file_putc (MIO  *mio,
-           gint  c)
+           int   c)
 {
   return fputc (c, mio->impl.file.fp);
 }
 
-static gint
-file_puts (MIO          *mio,
-           const gchar  *s)
+static int
+file_puts (MIO        *mio,
+           const char *s)
 {
   return fputs (s, mio->impl.file.fp);
 }
 
-static gint
+static int
 file_vprintf (MIO         *mio,
-              const gchar *format,
+              const char  *format,
               va_list      ap)
 {
   return vfprintf (mio->impl.file.fp, format, ap);
 }
 
-static gint
+static int
 file_getc (MIO *mio)
 {
   return fgetc (mio->impl.file.fp);
 }
 
-static gint
+static int
 file_ungetc (MIO  *mio,
-             gint  ch)
+             int   ch)
 {
   return ungetc (ch, mio->impl.file.fp);
 }
 
-static gchar *
+static char *
 file_gets (MIO    *mio,
-           gchar  *s,
-           gsize   size)
+           char   *s,
+           size_t  size)
 {
   return fgets (s, (int)size, mio->impl.file.fp);
 }
@@ -127,27 +126,27 @@ file_clearerr (MIO *mio)
   clearerr (mio->impl.file.fp);
 }
 
-static gint
+static int
 file_eof (MIO *mio)
 {
   return feof (mio->impl.file.fp);
 }
 
-static gint
+static int
 file_error (MIO *mio)
 {
   return ferror (mio->impl.file.fp);
 }
 
-static gint
+static int
 file_seek (MIO  *mio,
-           glong offset,
-           gint  whence)
+           long  offset,
+           int   whence)
 {
   return fseek (mio->impl.file.fp, offset, whence);
 }
 
-static glong
+static long
 file_tell (MIO *mio)
 {
   return ftell (mio->impl.file.fp);
@@ -159,14 +158,14 @@ file_rewind (MIO *mio)
   rewind (mio->impl.file.fp);
 }
 
-static gint
+static int
 file_getpos (MIO    *mio,
              MIOPos *pos)
 {
   return fgetpos (mio->impl.file.fp, &pos->impl.file);
 }
 
-static gint
+static int
 file_setpos (MIO    *mio,
              MIOPos *pos)
 {

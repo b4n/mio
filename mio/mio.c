@@ -18,12 +18,16 @@
  * 
  */
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 /* Hack to force ANSI compliance by not using va_copy() even if present.
  * This relies on the fact G_VA_COPY is maybe defined as va_copy in
  * glibconfig.h, so we undef it, but gutils.h takes care of defining a
  * compiler-specific implementation if not already defined.
  * This needs to come before any other GLib inclusion. */
-#ifdef MIO_FORCE_ANSI
+#if defined (HAVE_GLIB) && defined (MIO_FORCE_ANSI)
 # include <glibconfig.h>
 # undef G_VA_COPY
 #endif
@@ -32,11 +36,23 @@
 #include "mio-file.c"
 #include "mio-memory.c"
 
-#include <glib.h>
+#ifdef HAVE_GLIB
+# include <glib.h>
+#endif
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+
+
+#ifdef HAVE_GLIB
+# define MIO_ALLOC()  g_slice_new (MIO)
+# define MIO_FREE(m)  g_slice_free (MIO, (m))
+#else
+# define MIO_ALLOC()  (malloc (sizeof (MIO)))
+# define MIO_FREE(m)  (free (m))
+#endif
 
 
 
@@ -91,8 +107,8 @@
  * Returns: A new #MIO on success, or %NULL on failure.
  */
 MIO *
-mio_new_file_full (const gchar  *filename,
-                   const gchar  *mode,
+mio_new_file_full (const char   *filename,
+                   const char   *mode,
                    MIOFOpenFunc  open_func,
                    MIOFCloseFunc close_func)
 {
@@ -101,12 +117,12 @@ mio_new_file_full (const gchar  *filename,
   /* we need to create the MIO object first, because we may not be able to close
    * the opened file if the user passed NULL as the close function, which means
    * that everything must succeed if we've opened the file successfully */
-  mio = g_slice_alloc (sizeof *mio);
+  mio = MIO_ALLOC ();
   if (mio) {
     FILE *fp = open_func (filename, mode);
     
     if (! fp) {
-      g_slice_free1 (sizeof *mio, mio);
+      MIO_FREE (mio);
       mio = NULL;
     } else {
       mio->type = MIO_TYPE_FILE;
@@ -135,8 +151,8 @@ mio_new_file_full (const gchar  *filename,
  * Returns: A new #MIO on success, or %NULL on failure.
  */
 MIO *
-mio_new_file (const gchar *filename,
-              const gchar *mode)
+mio_new_file (const char  *filename,
+              const char  *mode)
 {
   return mio_new_file_full (filename, mode, fopen, fclose);
 }
@@ -167,7 +183,7 @@ mio_new_fp (FILE         *fp,
 {
   MIO *mio;
   
-  mio = g_slice_alloc (sizeof *mio);
+  mio = MIO_ALLOC ();
   if (mio) {
     mio->type = MIO_TYPE_FILE;
     mio->impl.file.fp = fp;
@@ -200,14 +216,14 @@ mio_new_fp (FILE         *fp,
  * <example>
  * <title>Basic creation of a non-growable, freeable #MIO object</title>
  * <programlisting>
- * MIO *mio = mio_new_memory (data, size, NULL, g_free);
+ * MIO *mio = mio_new_memory (data, size, NULL, free);
  * </programlisting>
  * </example>
  * 
  * <example>
  * <title>Basic creation of an empty growable and freeable #MIO object</title>
  * <programlisting>
- * MIO *mio = mio_new_memory (NULL, 0, g_try_realloc, g_free);
+ * MIO *mio = mio_new_memory (NULL, 0, realloc, free);
  * </programlisting>
  * </example>
  * 
@@ -216,14 +232,14 @@ mio_new_fp (FILE         *fp,
  * Returns: A new #MIO on success, or %NULL on failure.
  */
 MIO *
-mio_new_memory (guchar         *data,
-                gsize           size,
+mio_new_memory (unsigned char  *data,
+                size_t          size,
                 MIOReallocFunc  realloc_func,
-                GDestroyNotify  free_func)
+                MIOFreeFunc     free_func)
 {
   MIO  *mio;
   
-  mio = g_slice_alloc (sizeof *mio);
+  mio = MIO_ALLOC ();
   if (mio) {
     mio->type = MIO_TYPE_MEMORY;
     mio->impl.mem.buf = data;
@@ -282,11 +298,11 @@ mio_file_get_fp (MIO *mio)
  * Returns: The memory buffer of the given #MIO stream, or %NULL if the stream
  *          is not a memory stream.
  */
-guchar *
-mio_memory_get_data (MIO   *mio,
-                     gsize *size)
+unsigned char *
+mio_memory_get_data (MIO     *mio,
+                     size_t  *size)
 {
-  guchar *ptr = NULL;
+  unsigned char *ptr = NULL;
   
   if (mio->type == MIO_TYPE_MEMORY) {
     ptr = mio->impl.mem.buf;
@@ -307,7 +323,7 @@ mio_free (MIO *mio)
 {
   if (mio) {
     mio->v_free (mio);
-    g_slice_free1 (sizeof *mio, mio);
+    MIO_FREE (mio);
   }
 }
 
@@ -326,11 +342,11 @@ mio_free (MIO *mio)
  *          distinguish between end-of-stream and an error, you should then use
  *          mio_eof() and mio_error() to determine which occurred.
  */
-gsize
+size_t
 mio_read (MIO    *mio,
           void   *ptr,
-          gsize   size,
-          gsize   nmemb)
+          size_t  size,
+          size_t  nmemb)
 {
   return mio->v_read (mio, ptr, size, nmemb);
 }
@@ -347,11 +363,11 @@ mio_read (MIO    *mio,
  * Returns: The number of blocks actually written to the stream. This might be
  *          smaller than the requested count if a write error occurs.
  */
-gsize
+size_t
 mio_write (MIO         *mio,
            const void  *ptr,
-           gsize        size,
-           gsize        nmemb)
+           size_t       size,
+           size_t       nmemb)
 {
   return mio->v_write (mio, ptr, size, nmemb);
 }
@@ -366,9 +382,9 @@ mio_write (MIO         *mio,
  * 
  * Returns: The written wharacter, or %EOF on error.
  */
-gint
+int
 mio_putc (MIO  *mio,
-          gint  c)
+          int   c)
 {
   return mio->v_putc (mio, c);
 }
@@ -382,9 +398,9 @@ mio_putc (MIO  *mio,
  * 
  * Returns: A non-negative integer on success or %EOF on failure.
  */
-gint
-mio_puts (MIO          *mio,
-          const gchar  *s)
+int
+mio_puts (MIO        *mio,
+          const char *s)
 {
   return mio->v_puts (mio, s);
 }
@@ -401,9 +417,9 @@ mio_puts (MIO          *mio,
  * Returns: The number of bytes written in the stream, or a negative value on
  *          failure.
  */
-gint
+int
 mio_vprintf (MIO         *mio,
-             const gchar *format,
+             const char  *format,
              va_list      ap)
 {
   return mio->v_vprintf (mio, format, ap);
@@ -421,12 +437,12 @@ mio_vprintf (MIO         *mio,
  * Returns: The number of bytes written to the stream, or a negative value on
  *          failure.
  */
-gint
+int
 mio_printf (MIO         *mio,
-            const gchar *format,
+            const char  *format,
             ...)
 {
-  gint    rv;
+  int     rv;
   va_list ap;
   
   va_start (ap, format);
@@ -445,7 +461,7 @@ mio_printf (MIO         *mio,
  * 
  * Returns: The read character as a #gint, or %EOF on error.
  */
-gint
+int
 mio_getc (MIO *mio)
 {
   return mio->v_getc (mio);
@@ -467,9 +483,9 @@ mio_getc (MIO *mio)
  * 
  * Returns: The character put back, or %EOF on error.
  */
-gint
+int
 mio_ungetc (MIO  *mio,
-            gint  ch)
+            int   ch)
 {
   return mio->v_ungetc (mio, ch);
 }
@@ -486,10 +502,10 @@ mio_ungetc (MIO  *mio,
  * 
  * Returns: @s on success, %NULL otherwise.
  */
-gchar *
+char *
 mio_gets (MIO    *mio,
-          gchar  *s,
-          gsize   size)
+          char   *s,
+          size_t  size)
 {
   return mio->v_gets (mio, s, size);
 }
@@ -516,7 +532,7 @@ mio_clearerr (MIO *mio)
  * 
  * Returns: A non-null value if the stream reached its end, 0 otherwise.
  */
-gint
+int
 mio_eof (MIO *mio)
 {
   return mio->v_eof (mio);
@@ -531,7 +547,7 @@ mio_eof (MIO *mio)
  * 
  * Returns: A non-null value if the stream have an error set, 0 otherwise.
  */
-gint
+int
 mio_error (MIO *mio)
 {
   return mio->v_error (mio);
@@ -551,10 +567,10 @@ mio_error (MIO *mio)
  * Returns: 0 on success, -1 otherwise, in which case errno should be set to
  *          indicate the error.
  */
-gint
+int
 mio_seek (MIO  *mio,
-          glong offset,
-          gint  whence)
+          long  offset,
+          int   whence)
 {
   return mio->v_seek (mio, offset, whence);
 }
@@ -569,7 +585,7 @@ mio_seek (MIO  *mio,
  * Returns: The current offset from the start of the stream, or -1 or error, in
  *          which case errno is set to indicate the error.
  */
-glong
+long
 mio_tell (MIO *mio)
 {
   return mio->v_tell (mio);
@@ -601,11 +617,11 @@ mio_rewind (MIO *mio)
  * Returns: 0 on success, -1 otherwise, in which case errno is set to indicate
  *          the error.
  */
-gint
+int
 mio_getpos (MIO    *mio,
             MIOPos *pos)
 {
-  gint rv = -1;
+  int rv = -1;
   
   pos->type = mio->type;
   rv = mio->v_getpos (mio, pos);
@@ -633,19 +649,19 @@ mio_getpos (MIO    *mio,
  * Returns: 0 on success, -1 otherwise, in which case errno is set to indicate
  *          the error.
  */
-gint
+int
 mio_setpos (MIO    *mio,
             MIOPos *pos)
 {
-  gint rv = -1;
+  int rv = -1;
   
   #ifdef MIO_DEBUG
   if (pos->tag != mio) {
-    g_critical ("mio_setpos((MIO*)%p, (MIOPos*)%p): "
-                "Given MIOPos was not set by a previous call to mio_getpos() "
-                "on the same MIO object, which means there is a bug in "
-                "someone's code.",
-                (void *)mio, (void *)pos);
+    fprintf(stderr, "** MIO-CRITICAL: mio_setpos((MIO*)%p, (MIOPos*)%p): "
+                    "Given MIOPos was not set by a previous call to "
+                    "mio_getpos() on the same MIO object, which means there is "
+                    "a bug in someone's code.\n",
+                    (void *) mio, (void *) pos);
     errno = EINVAL;
     return -1;
   }

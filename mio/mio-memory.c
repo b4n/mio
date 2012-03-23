@@ -20,17 +20,43 @@
 
 /* memory IO implementation */
 
-#include <glib.h>
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
+#ifdef HAVE_GLIB
+# include <glib.h>
+# define LIKELY(expr)   G_LIKELY(expr)
+# define UNLIKELY(expr) G_UNLIKELY(expr)
+#elif defined (__GNUC__) && (__GNUC__ > 2) && defined(__OPTIMIZE__)
+# define LIKELY(expr)   (__builtin_expect ((expr), 1))
+# define UNLIKELY(expr) (__builtin_expect ((expr), 0))
+#else
+# define LIKELY(expr)   (expr)
+# define UNLIKELY(expr) (expr)
+#endif
 #include <stdarg.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 
 #include "mio.h"
 
+#ifndef TRUE
+# define TRUE 1
+#endif
+#ifndef FALSE
+# define FALSE 0
+#endif
+
+#ifndef MAX
+# define MAX(a, b) ((a) < (b) ? (b) : (a))
+#endif
+
 
 #define MEM_SET_VTABLE(mio)           \
-  G_STMT_START {                      \
+  do {                                \
     mio->v_free     = mem_free;       \
     mio->v_read     = mem_read;       \
     mio->v_write    = mem_write;      \
@@ -48,7 +74,7 @@
     mio->v_rewind   = mem_rewind;     \
     mio->v_getpos   = mem_getpos;     \
     mio->v_setpos   = mem_setpos;     \
-  } G_STMT_END
+  } while (0)
 
 
 /* minimal reallocation chunk size */
@@ -71,23 +97,23 @@ mem_free (MIO *mio)
   mio->impl.mem.error = FALSE;
 }
 
-static gsize
+static size_t
 mem_read (MIO    *mio,
           void   *ptr,
-          gsize   size,
-          gsize   nmemb)
+          size_t  size,
+          size_t  nmemb)
 {
-  gsize n_read = 0;
+  size_t n_read = 0;
   
   if (size != 0 && nmemb != 0) {
     if (mio->impl.mem.ungetch != EOF) {
-      *((guchar *)ptr) = (guchar)mio->impl.mem.ungetch;
+      *((unsigned char *) ptr) = (unsigned char) mio->impl.mem.ungetch;
       mio->impl.mem.ungetch = EOF;
       mio->impl.mem.pos++;
       if (size == 1) {
         n_read++;
       } else if (mio->impl.mem.pos + (size - 1) <= mio->impl.mem.size) {
-        memcpy (&(((guchar *)ptr)[1]),
+        memcpy (&(((unsigned char *) ptr)[1]),
                 &mio->impl.mem.buf[mio->impl.mem.pos], size - 1);
         mio->impl.mem.pos += size - 1;
         n_read++;
@@ -97,7 +123,7 @@ mem_read (MIO    *mio,
       if (mio->impl.mem.pos + size > mio->impl.mem.size) {
         break;
       } else {
-        memcpy (&(((guchar *)ptr)[n_read * size]),
+        memcpy (&(((unsigned char *) ptr)[n_read * size]),
                 &mio->impl.mem.buf[mio->impl.mem.pos], size);
         mio->impl.mem.pos += size;
       }
@@ -120,14 +146,14 @@ mem_read (MIO    *mio,
  * 
  * Returns: %TRUE on success, %FALSE otherwise.
  */
-static gboolean
-mem_try_resize (MIO  *mio,
-                gsize new_size)
+static int
+mem_try_resize (MIO    *mio,
+                size_t  new_size)
 {
-  gboolean success = FALSE;
+  int success = FALSE;
   
   if (mio->impl.mem.realloc_func) {
-    if (G_UNLIKELY (new_size == G_MAXSIZE)) {
+    if (UNLIKELY (new_size == ((size_t) -1))) {
       #ifdef EOVERFLOW
       errno = EOVERFLOW;
       #endif
@@ -137,8 +163,8 @@ mem_try_resize (MIO  *mio,
           mio->impl.mem.size = new_size;
           success = TRUE;
         } else {
-          gsize   newsize;
-          guchar *newbuf;
+          size_t          newsize;
+          unsigned char  *newbuf;
           
           newsize = MAX (mio->impl.mem.allocated_size + MIO_CHUNK_SIZE,
                          new_size);
@@ -151,10 +177,10 @@ mem_try_resize (MIO  *mio,
           }
         }
       } else {
-        guchar *newbuf;
+        unsigned char *newbuf;
         
         newbuf = mio->impl.mem.realloc_func (mio->impl.mem.buf, new_size);
-        if (G_LIKELY (newbuf || new_size == 0)) {
+        if (LIKELY (newbuf || new_size == 0)) {
           mio->impl.mem.buf = newbuf;
           mio->impl.mem.allocated_size = new_size;
           mio->impl.mem.size = new_size;
@@ -177,11 +203,11 @@ mem_try_resize (MIO  *mio,
  * 
  * Returns: %TRUE if there is enough space, %FALSE otherwise.
  */
-static gboolean
-mem_try_ensure_space (MIO  *mio,
-                      gsize n)
+static int
+mem_try_ensure_space (MIO    *mio,
+                      size_t  n)
 {
-  gboolean success = TRUE;
+  int success = TRUE;
   
   if (mio->impl.mem.pos + n > mio->impl.mem.size) {
     success = mem_try_resize (mio, mio->impl.mem.pos + n);
@@ -190,13 +216,13 @@ mem_try_ensure_space (MIO  *mio,
   return success;
 }
 
-static gsize
+static size_t
 mem_write (MIO         *mio,
            const void  *ptr,
-           gsize        size,
-           gsize        nmemb)
+           size_t       size,
+           size_t       nmemb)
 {
-  gsize n_written = 0;
+  size_t n_written = 0;
   
   if (size != 0 && nmemb != 0) {
     if (mem_try_ensure_space (mio, size * nmemb)) {
@@ -209,27 +235,27 @@ mem_write (MIO         *mio,
   return n_written;
 }
 
-static gint
+static int
 mem_putc (MIO  *mio,
-          gint  c)
+          int   c)
 {
-  gint rv = EOF;
+  int rv = EOF;
   
   if (mem_try_ensure_space (mio, 1)) {
-    mio->impl.mem.buf[mio->impl.mem.pos] = (guchar)c;
+    mio->impl.mem.buf[mio->impl.mem.pos] = (unsigned char) c;
     mio->impl.mem.pos++;
-    rv = (gint)((guchar)c);
+    rv = (int) ((unsigned char) c);
   }
   
   return rv;
 }
 
-static gint
-mem_puts (MIO          *mio,
-          const gchar  *s)
+static int
+mem_puts (MIO        *mio,
+          const char *s)
 {
-  gint  rv = EOF;
-  gsize len;
+  int     rv = EOF;
+  size_t  len;
   
   len = strlen (s);
   if (mem_try_ensure_space (mio, len)) {
@@ -241,36 +267,44 @@ mem_puts (MIO          *mio,
   return rv;
 }
 
-static gint
+static int
 mem_vprintf (MIO         *mio,
-             const gchar *format,
+             const char  *format,
              va_list      ap)
 {
-  gint    rv = -1;
-  gsize   n;
-  gsize   old_pos;
-  gsize   old_size;
+  int     rv = -1;
+  size_t  n;
+  size_t  old_pos;
+  size_t  old_size;
   va_list ap_copy;
+#ifndef HAVE_GLIB
+  char    dummy;
+#endif
   
   old_pos = mio->impl.mem.pos;
   old_size = mio->impl.mem.size;
-  G_VA_COPY (ap_copy, ap);
   /* compute the size we will need into the buffer */
+#ifndef HAVE_GLIB
+  va_copy (ap_copy, ap);
+  n = (size_t) vsnprintf (&dummy, 1, format, ap_copy) + 1;
+#else
+  G_VA_COPY (ap_copy, ap);
   n = g_printf_string_upper_bound (format, ap_copy);
+#endif
   va_end (ap_copy);
   if (mem_try_ensure_space (mio, n)) {
-    guchar c;
+    unsigned char c;
     
     /* backup character at n+1 that will be overwritten by a \0 ... */
     c = mio->impl.mem.buf[mio->impl.mem.pos + (n - 1)];
-    rv = vsprintf ((gchar *)&mio->impl.mem.buf[mio->impl.mem.pos], format, ap);
+    rv = vsprintf ((char *) &mio->impl.mem.buf[mio->impl.mem.pos], format, ap);
     /* ...and restore it */
     mio->impl.mem.buf[mio->impl.mem.pos + (n - 1)] = c;
-    if (G_LIKELY (rv >= 0 && (gsize)rv == (n - 1))) {
+    if (LIKELY (rv >= 0 && (size_t) rv == (n - 1))) {
       /* re-compute the actual size since we might have allocated one byte
        * more than needed */
-      mio->impl.mem.size = MAX (old_size, old_pos + (guint)rv);
-      mio->impl.mem.pos += (guint)rv;
+      mio->impl.mem.size = MAX (old_size, old_pos + (unsigned int) rv);
+      mio->impl.mem.pos += (unsigned int) rv;
     } else {
       mio->impl.mem.size = old_size;
       rv = -1;
@@ -280,10 +314,10 @@ mem_vprintf (MIO         *mio,
   return rv;
 }
 
-static gint
+static int
 mem_getc (MIO *mio)
 {
-  gint rv = EOF;
+  int rv = EOF;
   
   if (mio->impl.mem.ungetch != EOF) {
     rv = mio->impl.mem.ungetch;
@@ -299,11 +333,11 @@ mem_getc (MIO *mio)
   return rv;
 }
 
-static gint
+static int
 mem_ungetc (MIO  *mio,
-            gint  ch)
+            int   ch)
 {
-  gint rv = EOF;
+  int rv = EOF;
   
   if (ch != EOF && mio->impl.mem.ungetch == EOF) {
     rv = mio->impl.mem.ungetch = ch;
@@ -314,24 +348,24 @@ mem_ungetc (MIO  *mio,
   return rv;
 }
 
-static gchar *
+static char *
 mem_gets (MIO    *mio,
-          gchar  *s,
-          gsize   size)
+          char   *s,
+          size_t  size)
 {
-  gchar *rv = NULL;
+  char *rv = NULL;
   
   if (size > 0) {
-    gsize i = 0;
+    size_t i = 0;
     
     if (mio->impl.mem.ungetch != EOF) {
-      s[i] = (gchar)mio->impl.mem.ungetch;
+      s[i] = (char) mio->impl.mem.ungetch;
       mio->impl.mem.ungetch = EOF;
       mio->impl.mem.pos++;
       i++;
     }
     for (; mio->impl.mem.pos < mio->impl.mem.size && i < (size - 1); i++) {
-      s[i] = (gchar)mio->impl.mem.buf[mio->impl.mem.pos];
+      s[i] = (char) mio->impl.mem.buf[mio->impl.mem.pos];
       mio->impl.mem.pos++;
       if (s[i] == '\n') {
         i++;
@@ -357,51 +391,51 @@ mem_clearerr (MIO *mio)
   mio->impl.mem.eof = FALSE;
 }
 
-static gint
+static int
 mem_eof (MIO *mio)
 {
   return mio->impl.mem.eof != FALSE;
 }
 
-static gint
+static int
 mem_error (MIO *mio)
 {
   return mio->impl.mem.error != FALSE;
 }
 
 /* FIXME: should we support seeking out of bounds like lseek() seems to do? */
-static gint
+static int
 mem_seek (MIO  *mio,
-          glong offset,
-          gint  whence)
+          long  offset,
+          int   whence)
 {
-  gint rv = -1;
+  int rv = -1;
   
   switch (whence) {
     case SEEK_SET:
-      if (offset < 0 || (gsize)offset > mio->impl.mem.size) {
+      if (offset < 0 || (size_t) offset > mio->impl.mem.size) {
         errno = EINVAL;
       } else {
-        mio->impl.mem.pos = (gsize)offset;
+        mio->impl.mem.pos = (size_t) offset;
         rv = 0;
       }
       break;
     
     case SEEK_CUR:
-      if ((offset < 0 && (gsize)-offset > mio->impl.mem.pos) ||
-          mio->impl.mem.pos + (gsize)offset > mio->impl.mem.size) {
+      if ((offset < 0 && (size_t) -offset > mio->impl.mem.pos) ||
+          mio->impl.mem.pos + (size_t) offset > mio->impl.mem.size) {
         errno = EINVAL;
       } else {
-        mio->impl.mem.pos = (gsize)((gssize)mio->impl.mem.pos + offset);
+        mio->impl.mem.pos = (size_t) ((ssize_t) mio->impl.mem.pos + offset);
         rv = 0;
       }
       break;
     
     case SEEK_END:
-      if (offset > 0 || (gsize)-offset > mio->impl.mem.size) {
+      if (offset > 0 || (size_t) -offset > mio->impl.mem.size) {
         errno = EINVAL;
       } else {
-        mio->impl.mem.pos = mio->impl.mem.size - (gsize)-offset;
+        mio->impl.mem.pos = mio->impl.mem.size - (size_t) -offset;
         rv = 0;
       }
       break;
@@ -417,17 +451,17 @@ mem_seek (MIO  *mio,
   return rv;
 }
 
-static glong
+static long
 mem_tell (MIO *mio)
 {
-  glong rv = -1;
+  long rv = -1;
   
-  if (mio->impl.mem.pos > G_MAXLONG) {
+  if (mio->impl.mem.pos > LONG_MAX) {
     #ifdef EOVERFLOW
     errno = EOVERFLOW;
     #endif
   } else {
-    rv = (glong)mio->impl.mem.pos;
+    rv = (long) mio->impl.mem.pos;
   }
   
   return rv;
@@ -442,13 +476,13 @@ mem_rewind (MIO *mio)
   mio->impl.mem.error = FALSE;
 }
 
-static gint
+static int
 mem_getpos (MIO    *mio,
             MIOPos *pos)
 {
-  gint rv = -1;
+  int rv = -1;
   
-  if (mio->impl.mem.pos == (gsize)-1) {
+  if (mio->impl.mem.pos == (size_t) -1) {
     /* this happens if ungetc() was called at the start of the stream */
     #ifdef EIO
     errno = EIO;
@@ -461,11 +495,11 @@ mem_getpos (MIO    *mio,
   return rv;
 }
 
-static gint
+static int
 mem_setpos (MIO    *mio,
             MIOPos *pos)
 {
-  gint rv = -1;
+  int rv = -1;
   
   if (pos->impl.mem > mio->impl.mem.size) {
     errno = EINVAL;
