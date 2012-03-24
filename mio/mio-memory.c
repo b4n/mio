@@ -99,34 +99,34 @@ mem_free (MIO *mio)
 
 static size_t
 mem_read (MIO    *mio,
-          void   *ptr,
+          void   *ptr_,
           size_t  size,
           size_t  nmemb)
 {
   size_t n_read = 0;
   
   if (size != 0 && nmemb != 0) {
-    if (mio->impl.mem.ungetch != EOF) {
-      *((unsigned char *) ptr) = (unsigned char) mio->impl.mem.ungetch;
-      mio->impl.mem.ungetch = EOF;
-      mio->impl.mem.pos++;
-      if (size == 1) {
-        n_read++;
-      } else if (mio->impl.mem.pos + (size - 1) <= mio->impl.mem.size) {
-        memcpy (&(((unsigned char *) ptr)[1]),
-                &mio->impl.mem.buf[mio->impl.mem.pos], size - 1);
-        mio->impl.mem.pos += size - 1;
-        n_read++;
-      }
+    size_t          size_avail  = mio->impl.mem.size - mio->impl.mem.pos;
+    size_t          copy_bytes  = size * nmemb;
+    unsigned char  *ptr         = ptr_;
+    
+    if (size_avail < copy_bytes) {
+      copy_bytes = size_avail;
     }
-    for (; n_read < nmemb; n_read++) {
-      if (mio->impl.mem.pos + size > mio->impl.mem.size) {
-        break;
-      } else {
-        memcpy (&(((unsigned char *) ptr)[n_read * size]),
-                &mio->impl.mem.buf[mio->impl.mem.pos], size);
-        mio->impl.mem.pos += size;
+    
+    if (copy_bytes > 0) {
+      n_read = copy_bytes / size;
+      
+      if (mio->impl.mem.ungetch != EOF) {
+        *ptr = (unsigned char) mio->impl.mem.ungetch;
+        mio->impl.mem.ungetch = EOF;
+        copy_bytes--;
+        mio->impl.mem.pos++;
+        ptr++;
       }
+      
+      memcpy (ptr, &mio->impl.mem.buf[mio->impl.mem.pos], copy_bytes);
+      mio->impl.mem.pos += copy_bytes;
     }
     if (mio->impl.mem.pos >= mio->impl.mem.size) {
       mio->impl.mem.eof = TRUE;
