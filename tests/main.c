@@ -489,6 +489,31 @@ test_read_read (void)
 }
 
 static void
+test_read_read_partial (void)
+{
+  TEST_DECLARE_VAR (MIO*, mio, NULL)
+  TEST_DECLARE_ARRAY (gchar, ptr, 5, {0})
+  TEST_DECLARE_VAR (gsize, size, 2)
+  TEST_DECLARE_VAR (gsize, nmemb, 2)
+  TEST_DECLARE_VAR (gsize, n, 0)
+  TEST_DECLARE_VAR (gint, c, 0)
+  TEST_DECLARE_VAR (glong, pos, 0)
+  
+  TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
+  
+  TEST_SEEK (c, mio, -3, SEEK_END, 0);
+  TEST_READ (n, mio, ptr, size, nmemb, 0);
+  TEST_TELL (pos, mio, 0);
+  
+  TEST_SEEK (c, mio, -2, SEEK_END, 0);
+  TEST_UNGETC (c, mio, '1', 0);
+  TEST_READ (n, mio, ptr, size, nmemb, 0);
+  TEST_TELL (pos, mio, 0);
+  
+  TEST_DESTROY_MIO (mio)
+}
+
+static void
 test_read_getc (void)
 {
   TEST_DECLARE_VAR (MIO*, mio, NULL)
@@ -925,6 +950,7 @@ main (int     argc,
   create_output_file (TEST_FILE_W);
   
   ADD_TEST_FUNC (read, read);
+  ADD_TEST_FUNC (read, read_partial);
   ADD_TEST_FUNC (read, getc);
   ADD_TEST_FUNC (read, gets);
   ADD_TEST_FUNC (write, write);
