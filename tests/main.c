@@ -245,11 +245,11 @@ verbose (const gchar *fmt,
 
 #define assert_cmpptr(p1, cmp, p2, n)                                          \
   do { void *__p1 = (p1), *__p2 = (p2);                                        \
-    if (memcmp (__p1, __p2, n) cmp 0) ; else                                   \
+    if (memcmp (__p1, __p2, (n)) cmp 0) ; else                                 \
       g_assertion_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC,        \
                            g_strdup_printf ("\"%.*s\" " #cmp " \"%.*s\"",      \
-                                            (gint)n, (char *)__p1,             \
-                                            (gint)n, (char *)__p2));           \
+                                            (gint)(n), (char *)__p1,           \
+                                            (gint)(n), (char *)__p2));         \
   } while (0)
 
 #define assert_errno(errno, cmp, val)                                          \
@@ -278,7 +278,7 @@ verbose (const gchar *fmt,
   ret##_m = READ(ret##_m, mio##_m, ptr##_m, size##_m, nmemb##_m); \
   assert_errno (errno, ==, ex_err);                               \
   g_assert_cmpuint (ret##_f, ==, ret##_m);                        \
-  assert_cmpptr (ptr##_m, ==, ptr##_f, ret##_m)
+  assert_cmpptr (ptr##_m, ==, ptr##_f, ret##_m * size##_m)
 
 /* getc */
 #define GETC(ret, mio)                                                         \
