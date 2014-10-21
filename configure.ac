@@ -9,7 +9,7 @@ AC_INIT([MIO],
 AC_CONFIG_SRCDIR([mio/mio.c])
 AC_CONFIG_MACRO_DIR([build/m4])
 AC_CONFIG_AUX_DIR([build/aux])
-AM_INIT_AUTOMAKE([1.11.1 -Wall -Werror foreign])
+AM_INIT_AUTOMAKE([1.11.1 -Wall foreign])
 AC_CONFIG_HEADERS([config.h])
 
 AM_SILENT_RULES([yes])
@@ -26,6 +26,7 @@ MIO_LTVERSION="0:0:0"
 AC_SUBST([MIO_LTVERSION])
 
 # Checks for programs.
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 LT_PREREQ([2.2.0])
 LT_INIT
 AC_PROG_CC
