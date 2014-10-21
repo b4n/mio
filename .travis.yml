@@ -1,0 +1,21 @@
+language: c
+compiler:
+  - gcc
+  - clang
+env:
+  - GLIB=no
+  - GLIB=yes
+before_install:
+  - sudo apt-get update -qq
+install:
+  - sudo apt-get install -y libglib2.0-dev libtool gtk-doc-tools
+before_script:
+  - export CFLAGS="-g -O2 -Werror=pointer-arith -Werror=aggregate-return -Werror=implicit-function-declaration"
+script:
+  - >
+    ./autogen.sh                        &&
+    mkdir _build                        &&
+    cd _build                           &&
+    ../configure --enable-glib=$GLIB    &&
+    make -j2                            &&
+    make -j2 check
