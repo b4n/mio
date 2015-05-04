@@ -31,48 +31,29 @@
 static gboolean
 create_input_file (const gchar *filename)
 {
-  FILE     *fpin;
+  FILE     *fpout;
   gboolean  rv = FALSE;
   
-  fpin = fopen ("/dev/urandom", "r");
-  if (! fpin) {
-    /* if we can't open /dev/urandom, try to read ourselves */
-    fpin = fopen (__FILE__, "r");
-  }
-  if (! fpin) {
-    g_critical ("Failed to open input file: %s", g_strerror (errno));
+  fpout = fopen (filename, "w+");
+  if (! fpout) {
+    g_critical ("Failed to open output file: %s", g_strerror (errno));
   } else {
-    FILE *fpout;
+    gint  n;
+    gint  i;
     
-    fpout = fopen (filename, "w+");
-    if (! fpout) {
-      g_critical ("Failed to open output file: %s", g_strerror (errno));
-    } else {
-      gchar  *buf;
-      gsize   n_to_read;
-      gint    i;
+    n = (gint) g_random_int_range (1, 4096);
+    
+    rv = TRUE;
+    for (i = 0; rv && i < n; i++) {
+      gint c = (gint) g_random_int_range (0, 256);
       
-      n_to_read = (gsize)g_random_int_range (1, 1024);
-      buf = g_malloc (n_to_read * sizeof *buf);
-      
-      rv = TRUE;
-      for (i = 0; rv && i < g_random_int_range (1, 4); i++) {
-        gsize n_read;
-        
-        n_read = fread (buf, sizeof *buf, n_to_read, fpin);
-        if (fwrite (buf, sizeof *buf, n_read, fpout) != n_read) {
-          g_critical ("Failed to write %lu bytes of data: %s",
-                      n_read, g_strerror (errno));
-          rv = FALSE;
-        }
-        if (n_read < n_to_read) {
-          break;
-        }
+      if (putc (c, fpout) == EOF) {
+        g_critical ("Failed to write 1 bytes of data: %s",
+                    g_strerror (errno));
+        rv = FALSE;
       }
-      g_free (buf);
-      fclose (fpout);
     }
-    fclose (fpin);
+    fclose (fpout);
   }
   
   return rv;
