@@ -172,7 +172,7 @@ test_random_mem (void  *ptr,
   gsize i;
   
   for (i = 0; i < n; i++) {
-    ((guchar *)ptr)[i] = (guchar)g_random_int_range (0, 255);
+    ((guchar *)ptr)[i] = (guchar)g_random_int_range (0, 256);
   }
 }
 
