@@ -267,6 +267,7 @@ mem_puts (MIO        *mio,
   return rv;
 }
 
+__attribute__((__format__ (__printf__, 2, 0)))
 static int
 mem_vprintf (MIO         *mio,
              const char  *format,

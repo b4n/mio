@@ -157,7 +157,7 @@ struct _MIO {
                          const char  *s);
   int     (*v_vprintf)  (MIO         *mio,
                          const char  *format,
-                         va_list      ap);
+                         va_list      ap) __attribute__((__format__ (__printf__, 2, 0)));
   void    (*v_clearerr) (MIO *mio);
   int     (*v_eof)      (MIO *mio);
   int     (*v_error)    (MIO *mio);
@@ -210,7 +210,7 @@ int             mio_puts                (MIO         *mio,
 
 int             mio_vprintf             (MIO         *mio,
                                          const char  *format,
-                                         va_list      ap);
+                                         va_list      ap) __attribute__((__format__ (__printf__, 2, 0)));
 int             mio_printf              (MIO         *mio,
                                          const char  *format,
                                          ...) __attribute__((__format__ (__printf__, 2, 3)));

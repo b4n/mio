@@ -91,6 +91,7 @@ file_puts (MIO        *mio,
   return fputs (s, mio->impl.file.fp);
 }
 
+__attribute__((__format__ (__printf__, 2, 0)))
 static int
 file_vprintf (MIO         *mio,
               const char  *format,
