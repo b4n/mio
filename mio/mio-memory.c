@@ -357,6 +357,7 @@ mem_gets (MIO    *mio,
   char *rv = NULL;
   
   if (size > 0) {
+    int newline = FALSE;
     size_t i = 0;
     
     if (mio->impl.mem.ungetch != EOF) {
@@ -370,6 +371,7 @@ mem_gets (MIO    *mio,
       mio->impl.mem.pos++;
       if (s[i] == '\n') {
         i++;
+        newline = TRUE;
         break;
       }
     }
@@ -377,7 +379,7 @@ mem_gets (MIO    *mio,
       s[i] = 0;
       rv = s;
     }
-    if (mio->impl.mem.pos >= mio->impl.mem.size) {
+    if (!newline && mio->impl.mem.pos >= mio->impl.mem.size) {
       mio->impl.mem.eof = TRUE;
     }
   }

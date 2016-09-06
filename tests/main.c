@@ -46,6 +46,9 @@ create_input_file (const gchar *filename)
     rv = TRUE;
     for (i = 0; rv && i < n; i++) {
       gint c = (gint) g_random_int_range (0, 256);
+
+      if (i == n - 1)
+        c = '\n';
       
       if (putc (c, fpout) == EOF) {
         g_critical ("Failed to write 1 bytes of data: %s",
@@ -526,6 +529,15 @@ test_read_gets (void)
   
   TEST_CREATE_MIO (mio, TEST_FILE_R, FALSE)
   
+  TEST_SEEK (c, mio, -1, SEEK_END, 0);
+  TEST_GETS (sr, mio, s, size, 0);
+  TEST_EOF (c, mio);
+  TEST_GETS (sr, mio, s, size, 0);
+  TEST_EOF (c, mio);
+
+  TEST_SEEK (c, mio, 0, SEEK_SET, 0);
+  TEST_CLEARERR (mio);
+
   loop (i, 3) {
     TEST_GETS (sr, mio, s, size, 0);
   }
